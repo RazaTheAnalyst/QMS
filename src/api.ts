@@ -323,3 +323,15 @@ export async function deleteForwarderAPI(id: number): Promise<void> {
     .eq('id', id);
   if (error) throw error;
 }
+
+export async function updateForwarderAPI(id: number, data: Omit<Forwarder, 'id'>): Promise<Forwarder> {
+  const { data: row, error } = await supabase
+    .from('forwarders')
+    .update(forwarderInputToRow(data))
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  if (!row) throw new Error('No data returned from update');
+  return rowToForwarder(row as ForwarderRow);
+}

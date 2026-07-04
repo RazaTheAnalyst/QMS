@@ -1,23 +1,59 @@
 <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
   <defs>
+    <!-- Background Gradient -->
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    
+    <!-- Isometric Box Gradients -->
+    <linearGradient id="boxTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a5b4fc"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+    <linearGradient id="boxLeft" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="boxRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee"/>
       <stop offset="100%" stop-color="#06b6d4"/>
     </linearGradient>
-    <linearGradient id="inner" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#818cf8"/>
-      <stop offset="100%" stop-color="#22d3ee"/>
+    
+    <!-- Swoosh Gradient -->
+    <linearGradient id="swoosh" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="50%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#d946ef"/>
     </linearGradient>
   </defs>
-  <!-- Rounded square background -->
-  <rect x="10" y="10" width="180" height="180" rx="40" fill="url(#bg)"/>
-  <!-- Document shape -->
-  <path d="M60 50 h55 l25 25 v85 h-80 z" fill="white" opacity="0.95"/>
-  <path d="M115 50 v25 h25" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/>
-  <!-- Quote lines -->
-  <rect x="72" y="88" width="56" height="4" rx="2" fill="url(#inner)" opacity="0.7"/>
-  <rect x="72" y="100" width="40" height="4" rx="2" fill="url(#inner)" opacity="0.5"/>
-  <!-- Checkmark -->
-  <circle cx="138" cy="138" r="30" fill="url(#inner)"/>
-  <path d="M124 138 l10 10 l20 -22" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Rounded App Icon Style Background -->
+  <rect x="10" y="10" width="180" height="180" rx="42" fill="url(#bg)"/>
+  
+  <!-- Outer Glow Ring Behind Box -->
+  <ellipse cx="100" cy="115" rx="70" ry="25" fill="none" stroke="rgba(34, 211, 238, 0.2)" stroke-width="8" stroke-dasharray="10 15" transform="rotate(-15 100 115)"/>
+
+  <!-- Isometric Logistics Box (Split/Exploded Premium Look) -->
+  <g transform="translate(0, -5)">
+    <!-- Top Face -->
+    <polygon points="100,55 145,78 100,101 55,78" fill="url(#boxTop)"/>
+    <!-- Left Face -->
+    <polygon points="55,83 100,106 100,150 55,127" fill="url(#boxLeft)"/>
+    <!-- Right Face -->
+    <polygon points="100,106 145,83 145,127 100,150" fill="url(#boxRight)"/>
+    
+    <!-- Stylized Box Lines / Gap Highlights -->
+    <line x1="100" y1="106" x2="100" y2="150" stroke="#312e81" stroke-width="2" opacity="0.3"/>
+    <line x1="55" y1="83" x2="100" y2="106" stroke="#c7d2fe" stroke-width="1.5" opacity="0.4"/>
+    <line x1="145" y1="83" x2="100" y2="106" stroke="#c7d2fe" stroke-width="1.5" opacity="0.4"/>
+  </g>
+
+  <!-- Fast Shipping Swoosh Arrow (Wrapping around the box) -->
+  <path d="M25,125 C25,160 80,180 135,165 C165,156 180,130 175,100" fill="none" stroke="url(#swoosh)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M175,98 L183,114 L165,110 Z" fill="#d946ef" transform="rotate(10 175 98)"/>
+  
+  <!-- Small Logistics Speed Sparks -->
+  <line x1="30" y1="100" x2="45" y2="105" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
+  <line x1="45" y1="80" x2="55" y2="83" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round"/>
 </svg>

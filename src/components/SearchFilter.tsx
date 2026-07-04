@@ -1,6 +1,16 @@
 import { useCallback } from 'react';
+import { Search, X } from 'lucide-react';
 import { ENTITIES, STATUS_LIST } from '../types';
 import type { Filters } from '../types';
+import { Input } from './ui/input';
+import { Badge } from './ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 interface SearchFilterProps {
   filters: Filters;
@@ -16,51 +26,58 @@ export default function SearchFilter({ filters, onFilterChange, resultCount, tot
 
   const hasActiveFilters = filters.search || filters.entity || filters.status;
 
-  const visibleStatuses = STATUS_LIST;
-
   return (
     <div className="flex flex-wrap gap-3 items-center">
       <div className="relative flex-1 min-w-[200px]">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]">
-          🔍
-        </span>
-        <input
-          type="text"
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <Input
           placeholder="Search supplier, PO, forwarder, mode, origin..."
           value={filters.search}
           onChange={(e) => handleChange('search', e.target.value)}
-          className="w-full pl-10 pr-10 py-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] text-[var(--text)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-3 focus:ring-[var(--primary-bg)] transition-colors"
+          className="pl-10 pr-10"
         />
         {filters.search && (
           <button
             onClick={() => handleChange('search', '')}
-            title="Clear search"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text)] cursor-pointer transition-colors"
+            aria-label="Clear search"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
-      <select
-        value={filters.entity}
-        onChange={(e) => handleChange('entity', e.target.value)}
-        className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] text-[var(--text)] focus:outline-none focus:border-[var(--primary)] focus:ring-3 focus:ring-[var(--primary-bg)] transition-colors cursor-pointer"
+      <Select
+        value={filters.entity || 'all'}
+        onValueChange={(value) => handleChange('entity', value === 'all' ? '' : value)}
       >
-        <option value="">All Entities</option>
-        {ENTITIES.map(e => <option key={e} value={e}>{e}</option>)}
-      </select>
-      <select
-        value={filters.status}
-        onChange={(e) => handleChange('status', e.target.value)}
-        className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] text-[var(--text)] focus:outline-none focus:border-[var(--primary)] focus:ring-3 focus:ring-[var(--primary-bg)] transition-colors cursor-pointer"
+        <SelectTrigger className="w-[160px]">
+          <SelectValue placeholder="All Entities" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Entities</SelectItem>
+          {ENTITIES.map(e => (
+            <SelectItem key={e} value={e}>{e}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={filters.status || 'all'}
+        onValueChange={(value) => handleChange('status', value === 'all' ? '' : value)}
       >
-        <option value="">All Status</option>
-        {visibleStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-      </select>
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="All Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Status</SelectItem>
+          {STATUS_LIST.map(s => (
+            <SelectItem key={s} value={s}>{s}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {hasActiveFilters && resultCount !== undefined && totalCount !== undefined && (
-        <span className="px-3 py-1 rounded-full text-sm font-medium bg-[var(--primary-bg)] text-[var(--primary)]">
+        <Badge variant="secondary">
           {resultCount === totalCount ? `${totalCount} total` : `${resultCount} of ${totalCount} found`}
-        </span>
+        </Badge>
       )}
     </div>
   );

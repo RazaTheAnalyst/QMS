@@ -45,6 +45,8 @@ export interface Filters {
 
 export const ENTITIES = ['UAE', 'Qatar', 'Oman', 'KSA'] as const;
 
+export const ADMIN_EMAIL = 'admin@netceedmea.com';
+
 export const STATUS_LIST = [
   'Awaiting Approval',
   'Rejected',
@@ -52,12 +54,10 @@ export const STATUS_LIST = [
   'Sent for quotation',
   'Assign to forwarder',
   'In Transit',
-  'Arrived Awaiting clearence',
-  'Under Clearence',
+  'Arrived Awaiting Clearance',
+  'Under Clearance',
   'Delivered',
 ] as const;
-
-export type StatusType = typeof STATUS_LIST[number];
 
 export const CURRENCY_LIST = ['AED', 'USD', 'QAR', 'OMR', 'GBP', 'SAR', 'EUR'] as const;
 

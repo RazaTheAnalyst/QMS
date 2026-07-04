@@ -102,7 +102,7 @@ describe('QuotationTable', () => {
         onStatusChange={mockOnStatusChange}
       />
     );
-    const desktopTable = document.querySelector('.table-container.desktop-only');
+    const desktopTable = document.querySelector('.rounded-xl.border.bg-card');
     expect(desktopTable).toBeTruthy();
     expect(screen.getAllByText('Test Supplier').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('P001').length).toBeGreaterThanOrEqual(1);

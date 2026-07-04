@@ -3,6 +3,8 @@ export interface Country {
   cities: string[];
 }
 
+// Note: Country type is kept for internal use by COUNTRIES array
+
 export const COUNTRIES: Country[] = [
   { name: 'Afghanistan', cities: ['Kabul', 'Herat', 'Mazar-i-Sharif', 'Kandahar'] },
   { name: 'Albania', cities: ['Tirana', 'Durrës', 'Vlorë', 'Shkodër'] },

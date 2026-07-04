@@ -1,16 +1,30 @@
-import { useState, useMemo, useCallback, Component, type ReactNode } from 'react';
+import { useState, useMemo, useCallback, lazy, Suspense, Component, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { Toaster, toast } from 'sonner';
+import { LogOut, Plus, Search } from 'lucide-react';
 import { useStore } from './store';
 import { useAuth, AuthProvider } from './auth';
 import { ThemeProvider, useTheme } from './theme';
 import type { Quotation, QuotationInput, Filters, Forwarder } from './types';
-import Dashboard from './components/Dashboard';
-import QuotationTable from './components/QuotationTable';
-import QuotationForm from './components/QuotationForm';
-import SearchFilter from './components/SearchFilter';
-import Forwarders from './components/Forwarders';
-import LoginPage from './components/LoginPage';
-import './component-styles.css';
+import { ADMIN_EMAIL, convertCurrency } from './types';
+import { Button } from './components/ui/button';
+import { Alert, AlertDescription } from './components/ui/alert';
+import { cn } from '@/lib/utils';
+
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const QuotationTable = lazy(() => import('./components/QuotationTable'));
+const QuotationForm = lazy(() => import('./components/QuotationForm'));
+const SearchFilter = lazy(() => import('./components/SearchFilter'));
+const Forwarders = lazy(() => import('./components/Forwarders'));
+const LoginPage = lazy(() => import('./components/LoginPage'));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <div className="h-8 w-8 border-3 border-border border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+}
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
   state = { hasError: false, error: '' };
@@ -20,11 +34,11 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   render() {
     if (this.state.hasError) {
       return (
-        <div className="login-page">
-          <div className="login-card">
-            <h2>Something went wrong</h2>
-            <p style={{ color: 'var(--text-secondary)', margin: '12px 0' }}>{this.state.error}</p>
-            <button className="btn btn-primary" onClick={() => window.location.reload()}>Reload</button>
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="max-w-md w-full p-8 rounded-xl border bg-card text-card-foreground shadow-lg">
+            <h2 className="text-lg font-bold mb-2">Something went wrong</h2>
+            <p className="text-sm text-muted-foreground my-3">{this.state.error}</p>
+            <Button onClick={() => window.location.reload()}>Reload</Button>
           </div>
         </div>
       );
@@ -36,14 +50,16 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
   return (
-    <button
-      className="btn btn-nav btn-theme-toggle"
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8"
       onClick={toggleTheme}
       title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      {theme === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19'}
-    </button>
+      {theme === 'dark' ? '☀️' : '🌙'}
+    </Button>
   );
 }
 
@@ -59,7 +75,7 @@ interface QuotationsPageProps {
   onStatusChange: (id: number, status: string) => void;
 }
 
-function QuotationsPage({
+const QuotationsPage = (function QuotationsPage({
   filters,
   onFilterChange,
   filteredQuotations,
@@ -83,25 +99,67 @@ function QuotationsPage({
       />
     </>
   );
+});
+
+function ConfirmDialog({ open, onConfirm, onCancel, title, description }: {
+  open: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  title: string;
+  description: string;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
+      <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <h3 className="text-base font-bold mb-2">{title}</h3>
+        <p className="text-sm text-muted-foreground mb-5">{description}</p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button variant="destructive" size="sm" onClick={onConfirm}>Confirm</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RejectionPrompt({ open, onSubmit, onCancel }: {
+  open: boolean;
+  onSubmit: (reason: string) => void;
+  onCancel: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
+      <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <h3 className="text-base font-bold mb-2">Rejection Reason</h3>
+        <p className="text-sm text-muted-foreground mb-3">Please enter the reason for rejection:</p>
+        <textarea
+          className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder="Enter reason..."
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          autoFocus
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button variant="destructive" size="sm" onClick={() => onSubmit(reason)}>Reject</Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AppContent() {
   const { session, user, loading: authLoading, signOut } = useAuth();
-  const { quotations, forwarders, addQuotation, updateQuotation, deleteQuotation, addForwarder, deleteForwarder, loading, error: storeError } = useStore();
+  const { quotations, forwarders, addQuotation, updateQuotation, deleteQuotation, addForwarder, deleteForwarder, updateForwarder, loading, error: storeError } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [filters, setFilters] = useState<Filters>({ search: '', entity: '', status: '' });
-  const [toasts, setToasts] = useState<{ id: number; message: string; type: 'success' | 'error' | 'info' | 'warning' }[]>([]);
-
-  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
-  }, []);
-
-  console.log('--- DB Quotations from store:', quotations.map(q => ({ id: q.id, entity: q.entity, status: q.status })));
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [confirmDeleteFwd, setConfirmDeleteFwd] = useState<number | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<number | null>(null);
 
   const filteredQuotations = useMemo(() => {
     return quotations.filter(q => {
@@ -128,11 +186,168 @@ function AppContent() {
     });
   }, [quotations, filters]);
 
-  console.log('--- Filtered Quotations:', filteredQuotations.map(q => q.id));
-
   const handleCloseForm = useCallback(() => {
     setShowForm(false);
     setEditingQuotation(null);
+  }, []);
+
+  const handleSave = useCallback(async (data: QuotationInput & { percentage: number; savings: number }) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { percentage: _pct, ...input } = data;
+      if (editingQuotation) {
+        await updateQuotation(editingQuotation.id, input);
+        toast.success('Quotation updated successfully!');
+      } else {
+        await addQuotation(input);
+        toast.success('Quotation created successfully!');
+      }
+      setShowForm(false);
+      setEditingQuotation(null);
+    } catch (err) {
+      console.error('Save failed:', err);
+      toast.error('Failed to save quotation');
+    }
+  }, [editingQuotation, updateQuotation, addQuotation]);
+
+  const handleEdit = useCallback((quotation: Quotation) => {
+    setEditingQuotation(quotation);
+    setShowForm(true);
+  }, []);
+
+  const handleDelete = useCallback(async (id: number) => {
+    if (user?.email !== ADMIN_EMAIL) {
+      toast.error('Only the admin can delete quotations.');
+      return;
+    }
+    setConfirmDelete(id);
+  }, [user]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (confirmDelete === null) return;
+    try {
+      await deleteQuotation(confirmDelete);
+      toast.success('Quotation deleted successfully!');
+    } catch (err) {
+      console.error('Delete failed:', err);
+      toast.error('Failed to delete quotation');
+    }
+    setConfirmDelete(null);
+  }, [confirmDelete, deleteQuotation]);
+
+  const handleDeleteForwarder = useCallback(async (id: number) => {
+    if (user?.email !== ADMIN_EMAIL) {
+      toast.error('Only the admin can delete forwarders.');
+      return;
+    }
+    setConfirmDeleteFwd(id);
+  }, [user]);
+
+  const handleConfirmDeleteFwd = useCallback(async () => {
+    if (confirmDeleteFwd === null) return;
+    try {
+      await deleteForwarder(confirmDeleteFwd);
+      toast.success('Forwarder deleted successfully!');
+    } catch (err) {
+      console.error('Delete forwarder failed:', err);
+      toast.error('Failed to delete forwarder');
+    }
+    setConfirmDeleteFwd(null);
+  }, [confirmDeleteFwd, deleteForwarder]);
+
+  const handleAddForwarder = useCallback(async (data: Omit<Forwarder, 'id'>) => {
+    const duplicate = forwarders.some(f => f.name.toLowerCase() === data.name.trim().toLowerCase());
+    if (duplicate) {
+      toast.warning(`A forwarder named "${data.name.trim()}" already exists.`);
+      throw new Error('Duplicate forwarder');
+    }
+    try {
+      await addForwarder(data);
+      toast.success(`Forwarder "${data.name}" added successfully!`);
+    } catch (err) {
+      console.error('Failed to add forwarder:', err);
+      toast.error('Failed to add forwarder');
+      throw err;
+    }
+  }, [forwarders, addForwarder]);
+
+  const handleEditForwarder = useCallback(async (id: number, data: Omit<Forwarder, 'id'>) => {
+    const duplicate = forwarders.some(f => f.id !== id && f.name.toLowerCase() === data.name.trim().toLowerCase());
+    if (duplicate) {
+      toast.warning(`A forwarder named "${data.name.trim()}" already exists.`);
+      throw new Error('Duplicate forwarder');
+    }
+    try {
+      await updateForwarder(id, data);
+      toast.success(`Forwarder "${data.name}" updated successfully!`);
+    } catch (err) {
+      console.error('Failed to update forwarder:', err);
+      toast.error('Failed to update forwarder');
+      throw err;
+    }
+  }, [forwarders, updateForwarder]);
+
+  const handleAward = useCallback(async (id: number, forwarder: string) => {
+    try {
+      const q = quotations.find(item => item.id === id);
+      let savingsUpdate = {};
+      if (q && q.quotes.length >= 2) {
+        const poCurrency = q.poValueCurrency || 'AED';
+        const amounts = q.quotes.filter(qu => qu.quotedAmount > 0).map(qu => ({
+          forwarder: qu.forwarder,
+          amount: convertCurrency(qu.quotedAmount, qu.currency || 'AED', poCurrency),
+        }));
+        if (amounts.length >= 2) {
+          const lowestAmt = Math.min(...amounts.map(a => a.amount));
+          const awardedAmt = amounts.find(a => a.forwarder === forwarder)?.amount ?? lowestAmt;
+          savingsUpdate = { savings: Math.round((lowestAmt - awardedAmt) * 100) / 100 };
+        }
+      }
+      await updateQuotation(id, { awardedTo: forwarder, ...savingsUpdate });
+      toast.success(`Quotation awarded to ${forwarder}!`);
+    } catch (err) {
+      console.error('Award failed:', err);
+      toast.error('Failed to award forwarder');
+    }
+  }, [updateQuotation, quotations]);
+
+  const handleStatusChange = useCallback(async (id: number, status: string) => {
+    try {
+      let remarksUpdate = {};
+      if (status === 'Assign to forwarder') {
+        const q = quotations.find(item => item.id === id);
+        if (q && !q.awardedTo) {
+          toast.warning('Please select a forwarder quote to award before approving.');
+          return;
+        }
+      }
+      if (status === 'Rejected') {
+        setRejectTarget(id);
+        return;
+      }
+      await updateQuotation(id, { status, ...remarksUpdate });
+      toast.success(`Quotation status updated to ${status}!`);
+    } catch (err) {
+      console.error('Status update failed:', err);
+      toast.error('Failed to update status');
+    }
+  }, [quotations, updateQuotation]);
+
+  const handleRejectSubmit = useCallback(async (reason: string) => {
+    if (rejectTarget === null) return;
+    try {
+      await updateQuotation(rejectTarget, { status: 'Rejected', remarks: `Rejected: ${reason.trim() || 'No reason provided.'}` });
+      toast.success('Quotation rejected!');
+    } catch (err) {
+      console.error('Status update failed:', err);
+      toast.error('Failed to update status');
+    }
+    setRejectTarget(null);
+  }, [rejectTarget, updateQuotation]);
+
+  const handleAdd = useCallback(() => {
+    setEditingQuotation(null);
+    setShowForm(true);
   }, []);
 
   if (authLoading) {
@@ -152,120 +367,16 @@ function AppContent() {
   }
 
   if (!session) {
-    return <LoginPage />;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <LoginPage />
+      </Suspense>
+    );
   }
-
-  const handleSave = async (data: QuotationInput & { percentage: number }) => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { percentage: _pct, ...input } = data;
-      if (editingQuotation) {
-        await updateQuotation(editingQuotation.id, input);
-        showToast('Quotation updated successfully!', 'success');
-      } else {
-        await addQuotation(input);
-        showToast('Quotation created successfully!', 'success');
-      }
-      setShowForm(false);
-      setEditingQuotation(null);
-    } catch (err) {
-      console.error('Save failed:', err);
-      showToast('Failed to save quotation', 'error');
-    }
-  };
-
-  const handleEdit = (quotation: Quotation) => {
-    setEditingQuotation(quotation);
-    setShowForm(true);
-  };
-
-  const handleDelete = async (id: number) => {
-    if (user?.email !== 'admin@netceedmea.com') {
-      showToast('Only the admin can delete quotations.', 'error');
-      return;
-    }
-    if (window.confirm('Are you sure you want to delete this quotation?')) {
-      try {
-        await deleteQuotation(id);
-        showToast('Quotation deleted successfully!', 'success');
-      } catch (err) {
-        console.error('Delete failed:', err);
-        showToast('Failed to delete quotation', 'error');
-      }
-    }
-  };
-
-  const handleDeleteForwarder = async (id: number) => {
-    if (user?.email !== 'admin@netceedmea.com') {
-      showToast('Only the admin can delete forwarders.', 'error');
-      return;
-    }
-    try {
-      await deleteForwarder(id);
-      showToast('Forwarder deleted successfully!', 'success');
-    } catch (err) {
-      console.error('Delete forwarder failed:', err);
-      showToast('Failed to delete forwarder', 'error');
-    }
-  };
-
-  const handleAddForwarder = async (data: Omit<Forwarder, 'id'>) => {
-    const duplicate = forwarders.some(f => f.name.toLowerCase() === data.name.trim().toLowerCase());
-    if (duplicate) {
-      showToast(`A forwarder named "${data.name.trim()}" already exists.`, 'warning');
-      throw new Error('Duplicate forwarder');
-    }
-    try {
-      await addForwarder(data);
-      showToast(`Forwarder "${data.name}" added successfully!`, 'success');
-    } catch (err) {
-      console.error('Failed to add forwarder:', err);
-      showToast('Failed to add forwarder', 'error');
-      throw err;
-    }
-  };
-
-  const handleAward = async (id: number, forwarder: string) => {
-    try {
-      await updateQuotation(id, { awardedTo: forwarder });
-      showToast(`Quotation awarded to ${forwarder}!`, 'success');
-    } catch (err) {
-      console.error('Award failed:', err);
-      showToast('Failed to award forwarder', 'error');
-    }
-  };
-
-  const handleStatusChange = async (id: number, status: string) => {
-    try {
-      let remarksUpdate = {};
-      if (status === 'Assign to forwarder') {
-        const q = quotations.find(item => item.id === id);
-        if (q && !q.awardedTo) {
-          showToast('Please select a forwarder quote to award before approving.', 'warning');
-          return;
-        }
-      }
-      if (status === 'Rejected') {
-        const reason = window.prompt('Please enter the reason for rejection:');
-        if (reason === null) return; // cancel rejection
-        remarksUpdate = { remarks: `Rejected: ${reason.trim() || 'No reason provided.'}` };
-      }
-      await updateQuotation(id, { status, ...remarksUpdate });
-      showToast(`Quotation status updated to ${status}!`, 'success');
-    } catch (err) {
-      console.error('Status update failed:', err);
-      showToast('Failed to update status', 'error');
-    }
-  };
-
-  const handleAdd = () => {
-    setEditingQuotation(null);
-    setShowForm(true);
-  };
 
   if (loading) {
     return (
-      <div className="app min-h-screen min-h-dvh flex flex-col pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+      <div className="min-h-screen flex flex-col pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
         <div className="loading-container">
           <div className="loading-spinner" />
           <div className="loading-text">Loading quotations...</div>
@@ -275,97 +386,137 @@ function AppContent() {
   }
 
   return (
-    <div className="app min-h-screen min-h-dvh flex flex-col pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+    <div className="min-h-screen min-h-dvh flex flex-col pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] relative">
+      <Toaster position="bottom-right" richColors />
+
+      <div className="login-bg" style={{ zIndex: 0, pointerEvents: 'none' }}>
+        <div className="login-bg-orb login-bg-orb-1" />
+        <div className="login-bg-orb login-bg-orb-2" />
+        <div className="login-bg-orb login-bg-orb-3" />
+      </div>
+
       {storeError && (
-        <div className="store-error-banner bg-[var(--danger-bg)] text-[var(--danger)] py-3 px-5 text-center text-sm font-medium border-b border-[rgba(248,113,113,0.2)]">
-          Error loading data: {storeError}
-        </div>
+        <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+          <AlertDescription className="text-center text-sm">
+            Error loading data: {storeError}
+          </AlertDescription>
+        </Alert>
       )}
-      <header className="app-header sticky top-0 z-10 flex items-center justify-between bg-[var(--header-bg)] px-3 sm:px-5 border-b border-[var(--header-border)] h-[50px] h-[calc(50px+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)]">
-        <h1 className="text-sm font-semibold text-[var(--text)] tracking-tight flex items-center gap-2 whitespace-nowrap flex-shrink-0">
-          <img src="/logo.svg" alt="Logo" className="header-logo w-8 h-8 flex-shrink-0 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]" />
+
+      <header className="sticky top-0 z-10 flex items-center justify-between bg-background/80 backdrop-blur-sm px-3 sm:px-5 border-b border-border h-[50px] h-[calc(50px+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)]">
+        <h1 className="text-sm font-semibold tracking-tight flex items-center gap-2 whitespace-nowrap flex-shrink-0">
+          <img src="/logo.svg" alt="Logo" className="w-8 h-8 flex-shrink-0 drop-shadow-md" />
           <span className="hidden sm:inline">Quotation Manager</span>
         </h1>
-        <nav className="header-actions flex items-center gap-0 flex-shrink min-w-0 overflow-x-auto scrollbar-none bg-[var(--header-actions-bg)] rounded-[10px] p-[3px] border border-[var(--header-actions-border)]">
-          <NavLink to="/" end className={({ isActive }) => `btn btn-nav ${isActive ? 'active' : ''} px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium cursor-pointer border-none text-[var(--btn-text)] transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] bg-transparent min-h-[32px] hover:text-[var(--btn-hover-text)] hover:bg-[var(--btn-hover-bg)]`}>
+        <nav className="flex items-center gap-0 flex-shrink min-w-0 overflow-x-auto scrollbar-none bg-muted rounded-[10px] p-[3px] border border-border">
+          <NavLink to="/" end className={({ isActive }) => cn(
+            "px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium cursor-pointer border-none transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] bg-transparent min-h-[32px]",
+            isActive ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground hover:bg-background"
+          )}>
             Dashboard
           </NavLink>
-          <NavLink to="/quotations" className={({ isActive }) => `btn btn-nav ${isActive ? 'active' : ''} px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium cursor-pointer border-none text-[var(--btn-text)] transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] bg-transparent min-h-[32px] hover:text-[var(--btn-hover-text)] hover:bg-[var(--btn-hover-bg)]`}>
+          <NavLink to="/quotations" className={({ isActive }) => cn(
+            "px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium cursor-pointer border-none transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] bg-transparent min-h-[32px]",
+            isActive ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground hover:bg-background"
+          )}>
             Quotations
           </NavLink>
-          <NavLink to="/forwarders" className={({ isActive }) => `btn btn-nav ${isActive ? 'active' : ''} px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium cursor-pointer border-none text-[var(--btn-text)] transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] bg-transparent min-h-[32px] hover:text-[var(--btn-hover-text)] hover:bg-[var(--btn-hover-bg)]`}>
+          <NavLink to="/forwarders" className={({ isActive }) => cn(
+            "px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium cursor-pointer border-none transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] bg-transparent min-h-[32px]",
+            isActive ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground hover:bg-background"
+          )}>
             Forwarders
           </NavLink>
-          <button className="btn btn-nav btn-nav-add bg-[var(--add-btn-bg)] text-[var(--add-btn-text)] font-semibold ml-1 sm:ml-1.5 rounded-lg px-2.5 sm:px-3.5 py-1.5 text-[11px] sm:text-xs cursor-pointer border-none transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] min-h-[32px] hover:bg-[var(--add-btn-hover-bg)]" onClick={handleAdd}>
-            + Add
-          </button>
-          <div className="user-menu flex items-center gap-1 sm:gap-2 ml-1 pl-1.5 sm:pl-2 border-l border-[var(--header-actions-border)] flex-shrink-0">
-            <span className="user-email text-xs text-[var(--btn-text)] whitespace-nowrap hidden md:inline">{user?.email}</span>
+          <Button
+            size="sm"
+            className="ml-1 sm:ml-1.5 h-[32px] text-[11px] sm:text-xs gap-1"
+            onClick={handleAdd}
+          >
+            <Plus className="h-3.5 w-3.5" /> Add
+          </Button>
+          <div className="flex items-center gap-1 sm:gap-2 ml-1 pl-1.5 sm:pl-2 border-l border-border flex-shrink-0">
+            <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:inline">{user?.email}</span>
             <ThemeToggle />
-            <button className="btn btn-signout bg-[var(--signout-bg)] text-[var(--signout-text)] rounded-lg px-2 py-1.5 text-xs cursor-pointer border-none transition-all duration-200 hover:bg-[var(--signout-hover-bg)] hover:text-[var(--signout-hover-text)]" onClick={signOut} title="Sign out">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            </button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={signOut} title="Sign out">
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </nav>
       </header>
 
-      <main className="app-main flex-1 py-4 sm:py-7 px-4 sm:px-8 max-w-full">
-        <Routes>
-          <Route path="/" element={<Dashboard quotations={quotations} forwarders={forwarders} />} />
-          <Route
-            path="/quotations"
-            element={
-              <QuotationsPage
-                filters={filters}
-                onFilterChange={setFilters}
-                filteredQuotations={filteredQuotations}
-                quotations={quotations}
-                forwarders={forwarders}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onAward={handleAward}
-                onStatusChange={handleStatusChange}
-              />
-            }
-          />
-          <Route
-            path="/forwarders"
-            element={
-              <Forwarders
-                forwarders={forwarders}
-                onAdd={handleAddForwarder}
-                onDelete={handleDeleteForwarder}
-              />
-            }
-          />
-          <Route path="*" element={
-            <div className="empty-state text-center py-[60px] px-5 text-[var(--text-muted)]">
-              <div className="empty-state-icon text-[48px] mb-4">{'\uD83D\uDD0D'}</div>
-              <div className="empty-state-text text-[15px] font-medium">Page not found</div>
-            </div>
-          } />
-        </Routes>
+      <main className="flex-1 py-4 sm:py-7 px-4 sm:px-8 max-w-full relative z-10">
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Dashboard quotations={quotations} forwarders={forwarders} />} />
+            <Route
+              path="/quotations"
+              element={
+                <QuotationsPage
+                  filters={filters}
+                  onFilterChange={setFilters}
+                  filteredQuotations={filteredQuotations}
+                  quotations={quotations}
+                  forwarders={forwarders}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onAward={handleAward}
+                  onStatusChange={handleStatusChange}
+                />
+              }
+            />
+            <Route
+              path="/forwarders"
+              element={
+                <Forwarders
+                  forwarders={forwarders}
+                  onAdd={handleAddForwarder}
+                  onEdit={handleEditForwarder}
+                  onDelete={handleDeleteForwarder}
+                />
+              }
+            />
+            <Route path="*" element={
+              <div className="text-center py-[60px] px-5 text-muted-foreground">
+                <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <div className="text-[15px] font-medium">Page not found</div>
+              </div>
+            } />
+          </Routes>
+        </Suspense>
       </main>
 
       {showForm && (
-        <QuotationForm
-          quotation={editingQuotation}
-          forwarders={forwarders}
-          onSave={handleSave}
-          onClose={handleCloseForm}
-        />
+        <Suspense fallback={<PageLoader />}>
+          <QuotationForm
+            quotation={editingQuotation}
+            forwarders={forwarders}
+            onSave={handleSave}
+            onClose={handleCloseForm}
+          />
+        </Suspense>
       )}
 
-      <div className="toast-container">
-        {toasts.map(t => (
-          <div key={t.id} className={`toast toast-${t.type}`}>
-            <span className="toast-icon">
-              {t.type === 'success' ? '✔️' : t.type === 'error' ? '❌' : t.type === 'warning' ? '⚠️' : 'ℹ️'}
-            </span>
-            <span className="toast-message">{t.message}</span>
-          </div>
-        ))}
-      </div>
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDelete(null)}
+        title="Delete Quotation"
+        description="Are you sure you want to delete this quotation? This action cannot be undone."
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteFwd !== null}
+        onConfirm={handleConfirmDeleteFwd}
+        onCancel={() => setConfirmDeleteFwd(null)}
+        title="Delete Forwarder"
+        description="Are you sure you want to delete this forwarder? This action cannot be undone."
+      />
+
+      <RejectionPrompt
+        open={rejectTarget !== null}
+        onSubmit={handleRejectSubmit}
+        onCancel={() => setRejectTarget(null)}
+      />
     </div>
   );
 }
