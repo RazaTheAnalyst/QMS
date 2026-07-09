@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within } from './test-utils';
 import userEvent from '@testing-library/user-event';
 import QuotationTable from '../components/QuotationTable';
 import type { Quotation, Forwarder } from '../types';
@@ -38,7 +38,7 @@ const mockQuotations: Quotation[] = [
     percentage: 15,
     etd: '',
     eta: '',
-    status: 'Delivered',
+    status: 'In Transit',
     savings: 5000,
   },
 ];
@@ -102,8 +102,7 @@ describe('QuotationTable', () => {
         onStatusChange={mockOnStatusChange}
       />
     );
-    const desktopTable = document.querySelector('.rounded-xl.border.bg-card');
-    expect(desktopTable).toBeTruthy();
+    expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getAllByText('Test Supplier').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('P001').length).toBeGreaterThanOrEqual(1);
   });
@@ -119,7 +118,7 @@ describe('QuotationTable', () => {
         onStatusChange={mockOnStatusChange}
       />
     );
-    expect(screen.getAllByText('No quotations found').length).toBe(2);
+    expect(screen.getByText('No quotations found')).toBeInTheDocument();
   });
 
   it('calls onEdit when edit button is clicked in modal', async () => {
@@ -134,10 +133,10 @@ describe('QuotationTable', () => {
         onStatusChange={mockOnStatusChange}
       />
     );
-    const row = document.querySelector('.quote-row')!;
+    const row = screen.getByRole('row', { name: /Test Supplier/ });
     await user.click(row);
-    const modal = document.querySelector('.modal-overlay')!;
-    const editButton = within(modal as HTMLElement).getByRole('button', { name: /edit/i });
+    const dialog = await screen.findByRole('dialog');
+    const editButton = within(dialog).getByRole('button', { name: /edit/i });
     await user.click(editButton);
     expect(mockOnEdit).toHaveBeenCalledWith(mockQuotations[0]);
   });
@@ -154,10 +153,10 @@ describe('QuotationTable', () => {
         onStatusChange={mockOnStatusChange}
       />
     );
-    const row = document.querySelector('.quote-row')!;
+    const row = screen.getByRole('row', { name: /Test Supplier/ });
     await user.click(row);
-    const modal = document.querySelector('.modal-overlay')!;
-    const deleteButton = within(modal as HTMLElement).getByRole('button', { name: /delete/i });
+    const dialog = await screen.findByRole('dialog');
+    const deleteButton = within(dialog).getByRole('button', { name: /delete/i });
     await user.click(deleteButton);
     expect(mockOnDelete).toHaveBeenCalledWith(1);
   });
@@ -174,9 +173,10 @@ describe('QuotationTable', () => {
         onStatusChange={mockOnStatusChange}
       />
     );
-    const row = document.querySelector('.quote-row')!;
+    const row = screen.getByRole('row', { name: /Test Supplier/ });
     await user.click(row);
-    expect(screen.getAllByText('BDP').length).toBeGreaterThanOrEqual(1);
+    const bdpElements = await screen.findAllByText('BDP');
+    expect(bdpElements.length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows pending badge for non-awarded quotations', () => {
@@ -191,5 +191,20 @@ describe('QuotationTable', () => {
       />
     );
     expect(screen.getAllByText('Sent for quotation').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows delivered quotations when search is active', () => {
+    render(
+      <QuotationTable
+        quotations={[{ ...mockQuotations[0]!, status: 'Delivered' }]}
+        forwarders={mockForwarders}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+        onAward={mockOnAward}
+        onStatusChange={mockOnStatusChange}
+        searchActive
+      />
+    );
+    expect(screen.getAllByText('Test Supplier').length).toBeGreaterThanOrEqual(1);
   });
 });

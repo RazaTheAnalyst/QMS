@@ -1,15 +1,18 @@
-import { useState, useMemo, useCallback, lazy, Suspense, Component, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import { Toaster, toast } from 'sonner';
-import { LogOut, Plus, Search } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense, Component, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Search } from '@mui/icons-material';
+import {
+  Box, Button, Typography, Dialog, DialogTitle, DialogContent,
+  DialogActions, TextField, Alert, AlertTitle,
+} from '@mui/material';
+import { useSnackbar } from './snackbar';
 import { useStore } from './store';
 import { useAuth, AuthProvider } from './auth';
-import { ThemeProvider, useTheme } from './theme';
+import { ThemeProvider } from './theme';
 import type { Quotation, QuotationInput, Filters, Forwarder } from './types';
 import { ADMIN_EMAIL, convertCurrency } from './types';
-import { Button } from './components/ui/button';
-import { Alert, AlertDescription } from './components/ui/alert';
-import { cn } from '@/lib/utils';
+import { AppNav } from './components/AppNav';
+import { MobileNav } from './components/MobileNav';
 
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const QuotationTable = lazy(() => import('./components/QuotationTable'));
@@ -18,11 +21,37 @@ const SearchFilter = lazy(() => import('./components/SearchFilter'));
 const Forwarders = lazy(() => import('./components/Forwarders'));
 const LoginPage = lazy(() => import('./components/LoginPage'));
 
+const APPROVED_STATUSES = new Set([
+  'Assign to forwarder',
+  'In Transit',
+  'Arrived Awaiting Clearance',
+  'Under Clearance',
+  'Delivered',
+]);
+
+function titleCaseName(value: string) {
+  return value
+    .replace(/[._-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function getActorName(user: { email?: string; user_metadata?: Record<string, unknown> } | null | undefined) {
+  const metadata = user?.user_metadata ?? {};
+  const metadataName = metadata.full_name || metadata.name || metadata.display_name;
+  if (typeof metadataName === 'string' && metadataName.trim()) {
+    return metadataName.trim();
+  }
+
+  const emailName = user?.email?.split('@')[0] ?? '';
+  return emailName ? titleCaseName(emailName) : 'Unknown user';
+}
+
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center py-20">
-      <div className="h-8 w-8 border-3 border-border border-t-primary rounded-full animate-spin" />
-    </div>
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+      <Box sx={{ width: 32, height: 32, border: '3px solid', borderColor: 'divider', borderTopColor: 'primary.main', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    </Box>
   );
 }
 
@@ -34,33 +63,17 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="max-w-md w-full p-8 rounded-xl border bg-card text-card-foreground shadow-lg">
-            <h2 className="text-lg font-bold mb-2">Something went wrong</h2>
-            <p className="text-sm text-muted-foreground my-3">{this.state.error}</p>
-            <Button onClick={() => window.location.reload()}>Reload</Button>
-          </div>
-        </div>
+        <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
+          <Box sx={{ maxWidth: 440, width: '100%', p: 4, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+            <Typography variant="h6" fontWeight={700} gutterBottom>Something went wrong</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ my: 1.5 }}>{this.state.error}</Typography>
+            <Button variant="contained" onClick={() => window.location.reload()}>Reload</Button>
+          </Box>
+        </Box>
       );
     }
     return this.props.children;
   }
-}
-
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-8 w-8"
-      onClick={toggleTheme}
-      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-    >
-      {theme === 'dark' ? '☀️' : '🌙'}
-    </Button>
-  );
 }
 
 interface QuotationsPageProps {
@@ -76,15 +89,8 @@ interface QuotationsPageProps {
 }
 
 const QuotationsPage = (function QuotationsPage({
-  filters,
-  onFilterChange,
-  filteredQuotations,
-  quotations,
-  forwarders,
-  onEdit,
-  onDelete,
-  onAward,
-  onStatusChange
+  filters, onFilterChange, filteredQuotations, quotations, forwarders,
+  onEdit, onDelete, onAward, onStatusChange,
 }: QuotationsPageProps) {
   return (
     <>
@@ -96,67 +102,58 @@ const QuotationsPage = (function QuotationsPage({
         onDelete={onDelete}
         onAward={onAward}
         onStatusChange={onStatusChange}
+        searchActive={Boolean(filters.search.trim())}
       />
     </>
   );
 });
 
 function ConfirmDialog({ open, onConfirm, onCancel, title, description }: {
-  open: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-  title: string;
-  description: string;
+  open: boolean; onConfirm: () => void; onCancel: () => void; title: string; description: string;
 }) {
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
-      <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h3 className="text-base font-bold mb-2">{title}</h3>
-        <p className="text-sm text-muted-foreground mb-5">{description}</p>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
-          <Button variant="destructive" size="sm" onClick={onConfirm}>Confirm</Button>
-        </div>
-      </div>
-    </div>
+    <Dialog open={open} onClose={onCancel} maxWidth="xs">
+      <DialogTitle fontWeight={700}>{title}</DialogTitle>
+      <DialogContent><Typography variant="body2" color="text.secondary">{description}</Typography></DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button onClick={onConfirm} color="error" variant="contained">Confirm</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
 function RejectionPrompt({ open, onSubmit, onCancel }: {
-  open: boolean;
-  onSubmit: (reason: string) => void;
-  onCancel: () => void;
+  open: boolean; onSubmit: (reason: string) => void; onCancel: () => void;
 }) {
   const [reason, setReason] = useState('');
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
-      <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h3 className="text-base font-bold mb-2">Rejection Reason</h3>
-        <p className="text-sm text-muted-foreground mb-3">Please enter the reason for rejection:</p>
-        <textarea
-          className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-          placeholder="Enter reason..."
-          value={reason}
-          onChange={e => setReason(e.target.value)}
-          autoFocus
+    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
+      <DialogTitle fontWeight={700}>Rejection Reason</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" mb={2}>Please enter the reason for rejection:</Typography>
+        <TextField
+          multiline rows={3} placeholder="Enter reason..." fullWidth size="small" autoFocus
+          value={reason} onChange={e => setReason(e.target.value)}
         />
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
-          <Button variant="destructive" size="sm" onClick={() => onSubmit(reason)}>Reject</Button>
-        </div>
-      </div>
-    </div>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel}>Cancel</Button>
+        <Button onClick={() => onSubmit(reason)} color="error" variant="contained">Reject</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
 function AppContent() {
-  const { session, user, loading: authLoading, signOut } = useAuth();
+  const { session, user, loading: authLoading } = useAuth();
+  const snackbar = useSnackbar();
   const { quotations, forwarders, addQuotation, updateQuotation, deleteQuotation, addForwarder, deleteForwarder, updateForwarder, loading, error: storeError } = useStore();
+  const approvalBackfillDoneRef = useRef(false);
   const [showForm, setShowForm] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [filters, setFilters] = useState<Filters>({ search: '', entity: '', status: '' });
+  const [displayCurrency, setDisplayCurrency] = useState('AED');
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [confirmDeleteFwd, setConfirmDeleteFwd] = useState<number | null>(null);
   const [rejectTarget, setRejectTarget] = useState<number | null>(null);
@@ -178,13 +175,48 @@ function AppContent() {
         q.transitTime.toLowerCase().includes(searchLower) ||
         q.status.toLowerCase().includes(searchLower) ||
         q.quotes.some(qu => qu.forwarder.toLowerCase().includes(searchLower));
-
       const entityMatch = !filters.entity || q.entity === filters.entity;
       const statusMatch = !filters.status || q.status === filters.status;
-
       return searchMatch && entityMatch && statusMatch;
     });
   }, [quotations, filters]);
+
+  const pendingApprovalsCount = useMemo(() =>
+    quotations.filter(q => q.status === 'Awaiting Approval').length,
+    [quotations]
+  );
+
+  useEffect(() => {
+    if (!session || loading || approvalBackfillDoneRef.current || user?.email !== ADMIN_EMAIL) return;
+
+    const targets = quotations.filter(q =>
+      APPROVED_STATUSES.has(q.status) &&
+      (!q.approvedBy || !q.approvedAt)
+    );
+
+    if (targets.length === 0) {
+      approvalBackfillDoneRef.current = true;
+      return;
+    }
+
+    approvalBackfillDoneRef.current = true;
+    const actorName = getActorName(user);
+    const approvedAt = new Date().toISOString();
+
+    void Promise.all(targets.map(q =>
+      updateQuotation(q.id, {
+        approvedBy: q.approvedBy || actorName,
+        approvedAt: q.approvedAt || approvedAt,
+      })
+    ))
+      .then(() => {
+        snackbar.success(`Approval history updated for ${targets.length} quotation${targets.length === 1 ? '' : 's'}.`);
+      })
+      .catch((err) => {
+        console.error('Approval backfill failed:', err);
+        snackbar.error('Failed to update approval history.');
+      });
+  }, [loading, quotations, session, snackbar, updateQuotation, user]);
 
   const handleCloseForm = useCallback(() => {
     setShowForm(false);
@@ -197,18 +229,22 @@ function AppContent() {
       const { percentage: _pct, ...input } = data;
       if (editingQuotation) {
         await updateQuotation(editingQuotation.id, input);
-        toast.success('Quotation updated successfully!');
+        snackbar.success('Quotation updated successfully!');
       } else {
-        await addQuotation(input);
-        toast.success('Quotation created successfully!');
+        await addQuotation({
+          ...input,
+          createdBy: getActorName(user),
+          createdAt: new Date().toISOString(),
+        });
+        snackbar.success('Quotation created successfully!');
       }
       setShowForm(false);
       setEditingQuotation(null);
     } catch (err) {
       console.error('Save failed:', err);
-      toast.error('Failed to save quotation');
+      snackbar.error('Failed to save quotation');
     }
-  }, [editingQuotation, updateQuotation, addQuotation]);
+  }, [editingQuotation, updateQuotation, addQuotation, snackbar, user]);
 
   const handleEdit = useCallback((quotation: Quotation) => {
     setEditingQuotation(quotation);
@@ -217,75 +253,75 @@ function AppContent() {
 
   const handleDelete = useCallback(async (id: number) => {
     if (user?.email !== ADMIN_EMAIL) {
-      toast.error('Only the admin can delete quotations.');
+      snackbar.error('Only the admin can delete quotations.');
       return;
     }
     setConfirmDelete(id);
-  }, [user]);
+  }, [user, snackbar]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (confirmDelete === null) return;
     try {
       await deleteQuotation(confirmDelete);
-      toast.success('Quotation deleted successfully!');
+      snackbar.success('Quotation deleted successfully!');
     } catch (err) {
       console.error('Delete failed:', err);
-      toast.error('Failed to delete quotation');
+      snackbar.error('Failed to delete quotation');
     }
     setConfirmDelete(null);
-  }, [confirmDelete, deleteQuotation]);
+  }, [confirmDelete, deleteQuotation, snackbar]);
 
   const handleDeleteForwarder = useCallback(async (id: number) => {
     if (user?.email !== ADMIN_EMAIL) {
-      toast.error('Only the admin can delete forwarders.');
+      snackbar.error('Only the admin can delete forwarders.');
       return;
     }
     setConfirmDeleteFwd(id);
-  }, [user]);
+  }, [user, snackbar]);
 
   const handleConfirmDeleteFwd = useCallback(async () => {
     if (confirmDeleteFwd === null) return;
     try {
       await deleteForwarder(confirmDeleteFwd);
-      toast.success('Forwarder deleted successfully!');
+      snackbar.success('Forwarder deleted successfully!');
     } catch (err) {
       console.error('Delete forwarder failed:', err);
-      toast.error('Failed to delete forwarder');
+      snackbar.error('Failed to delete forwarder');
     }
     setConfirmDeleteFwd(null);
-  }, [confirmDeleteFwd, deleteForwarder]);
+  }, [confirmDeleteFwd, deleteForwarder, snackbar]);
 
   const handleAddForwarder = useCallback(async (data: Omit<Forwarder, 'id'>) => {
     const duplicate = forwarders.some(f => f.name.toLowerCase() === data.name.trim().toLowerCase());
     if (duplicate) {
-      toast.warning(`A forwarder named "${data.name.trim()}" already exists.`);
+      snackbar.warning(`A forwarder named "${data.name.trim()}" already exists.`);
       throw new Error('Duplicate forwarder');
     }
     try {
       await addForwarder(data);
-      toast.success(`Forwarder "${data.name}" added successfully!`);
+      snackbar.success(`Forwarder "${data.name}" added successfully!`);
     } catch (err) {
       console.error('Failed to add forwarder:', err);
-      toast.error('Failed to add forwarder');
+      snackbar.error('Failed to add forwarder');
       throw err;
     }
-  }, [forwarders, addForwarder]);
+  }, [forwarders, addForwarder, snackbar]);
 
   const handleEditForwarder = useCallback(async (id: number, data: Omit<Forwarder, 'id'>) => {
     const duplicate = forwarders.some(f => f.id !== id && f.name.toLowerCase() === data.name.trim().toLowerCase());
     if (duplicate) {
-      toast.warning(`A forwarder named "${data.name.trim()}" already exists.`);
+      snackbar.warning(`A forwarder named "${data.name.trim()}" already exists.`);
       throw new Error('Duplicate forwarder');
     }
     try {
       await updateForwarder(id, data);
-      toast.success(`Forwarder "${data.name}" updated successfully!`);
+      snackbar.success(`Forwarder "${data.name}" updated successfully!`);
     } catch (err) {
       console.error('Failed to update forwarder:', err);
-      toast.error('Failed to update forwarder');
+      snackbar.error('Failed to update forwarder');
       throw err;
     }
-  }, [forwarders, updateForwarder]);
+  }, [forwarders, updateForwarder, snackbar]);
 
   const handleAward = useCallback(async (id: number, forwarder: string) => {
     try {
@@ -304,20 +340,19 @@ function AppContent() {
         }
       }
       await updateQuotation(id, { awardedTo: forwarder, ...savingsUpdate });
-      toast.success(`Quotation awarded to ${forwarder}!`);
+      snackbar.success(`Quotation awarded to ${forwarder}!`);
     } catch (err) {
       console.error('Award failed:', err);
-      toast.error('Failed to award forwarder');
+      snackbar.error('Failed to award forwarder');
     }
-  }, [updateQuotation, quotations]);
+  }, [updateQuotation, quotations, snackbar]);
 
   const handleStatusChange = useCallback(async (id: number, status: string) => {
     try {
-      let remarksUpdate = {};
       if (status === 'Assign to forwarder') {
         const q = quotations.find(item => item.id === id);
         if (q && !q.awardedTo) {
-          toast.warning('Please select a forwarder quote to award before approving.');
+          snackbar.warning('Please select a forwarder quote to award before approving.');
           return;
         }
       }
@@ -325,25 +360,28 @@ function AppContent() {
         setRejectTarget(id);
         return;
       }
-      await updateQuotation(id, { status, ...remarksUpdate });
-      toast.success(`Quotation status updated to ${status}!`);
+      const approvalStamp = status === 'Assign to forwarder'
+        ? { approvedBy: getActorName(user), approvedAt: new Date().toISOString() }
+        : {};
+      await updateQuotation(id, { status, ...approvalStamp });
+      snackbar.success(`Quotation status updated to ${status}!`);
     } catch (err) {
       console.error('Status update failed:', err);
-      toast.error('Failed to update status');
+      snackbar.error('Failed to update status');
     }
-  }, [quotations, updateQuotation]);
+  }, [quotations, updateQuotation, snackbar, user]);
 
   const handleRejectSubmit = useCallback(async (reason: string) => {
     if (rejectTarget === null) return;
     try {
       await updateQuotation(rejectTarget, { status: 'Rejected', remarks: `Rejected: ${reason.trim() || 'No reason provided.'}` });
-      toast.success('Quotation rejected!');
+      snackbar.success('Quotation rejected!');
     } catch (err) {
       console.error('Status update failed:', err);
-      toast.error('Failed to update status');
+      snackbar.error('Failed to update status');
     }
     setRejectTarget(null);
-  }, [rejectTarget, updateQuotation]);
+  }, [rejectTarget, updateQuotation, snackbar]);
 
   const handleAdd = useCallback(() => {
     setEditingQuotation(null);
@@ -352,17 +390,12 @@ function AppContent() {
 
   if (authLoading) {
     return (
-      <div className="login-page">
-        <div className="login-bg">
-          <div className="login-bg-orb login-bg-orb-1" />
-          <div className="login-bg-orb login-bg-orb-2" />
-          <div className="login-bg-orb login-bg-orb-3" />
-        </div>
-        <div className="loading-container">
-          <div className="loading-spinner" />
-          <div className="loading-text">Loading...</div>
-        </div>
-      </div>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 32, height: 32, border: '3px solid', borderColor: 'divider', borderTopColor: 'primary.main', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <Typography variant="body2" color="text.secondary">Loading...</Typography>
+        </Box>
+      </Box>
     );
   }
 
@@ -376,114 +409,84 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
-        <div className="loading-container">
-          <div className="loading-spinner" />
-          <div className="loading-text">Loading quotations...</div>
-        </div>
-      </div>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 32, height: 32, border: '3px solid', borderColor: 'divider', borderTopColor: 'primary.main', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <Typography variant="body2" color="text.secondary">Loading quotations...</Typography>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <div className="min-h-screen min-h-dvh flex flex-col pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] relative">
-      <Toaster position="bottom-right" richColors />
-
-      <div className="login-bg" style={{ zIndex: 0, pointerEvents: 'none' }}>
-        <div className="login-bg-orb login-bg-orb-1" />
-        <div className="login-bg-orb login-bg-orb-2" />
-        <div className="login-bg-orb login-bg-orb-3" />
-      </div>
+    <>
+      <AppNav
+        onAdd={handleAdd}
+        displayCurrency={displayCurrency}
+        onCurrencyChange={setDisplayCurrency}
+      />
 
       {storeError && (
-        <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
-          <AlertDescription className="text-center text-sm">
-            Error loading data: {storeError}
-          </AlertDescription>
+        <Alert severity="error" sx={{ borderRadius: 0, borderWidth: 0 }}>
+          <AlertTitle>Error</AlertTitle>
+          Error loading data: {storeError}
         </Alert>
       )}
 
-      <header className="sticky top-0 z-10 flex items-center justify-between bg-background/80 backdrop-blur-sm px-3 sm:px-5 border-b border-border h-[50px] h-[calc(50px+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)]">
-        <h1 className="text-sm font-semibold tracking-tight flex items-center gap-2 whitespace-nowrap flex-shrink-0">
-          <img src="/logo.svg" alt="Logo" className="w-8 h-8 flex-shrink-0 drop-shadow-md" />
-          <span className="hidden sm:inline">Quotation Manager</span>
-        </h1>
-        <nav className="flex items-center gap-0 flex-shrink min-w-0 overflow-x-auto scrollbar-none bg-muted rounded-[10px] p-[3px] border border-border">
-          <NavLink to="/" end className={({ isActive }) => cn(
-            "px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium cursor-pointer border-none transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] bg-transparent min-h-[32px]",
-            isActive ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground hover:bg-background"
-          )}>
-            Dashboard
-          </NavLink>
-          <NavLink to="/quotations" className={({ isActive }) => cn(
-            "px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium cursor-pointer border-none transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] bg-transparent min-h-[32px]",
-            isActive ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground hover:bg-background"
-          )}>
-            Quotations
-          </NavLink>
-          <NavLink to="/forwarders" className={({ isActive }) => cn(
-            "px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium cursor-pointer border-none transition-all duration-200 tracking-tight whitespace-nowrap inline-flex items-center gap-[5px] bg-transparent min-h-[32px]",
-            isActive ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground hover:bg-background"
-          )}>
-            Forwarders
-          </NavLink>
-          <Button
-            size="sm"
-            className="ml-1 sm:ml-1.5 h-[32px] text-[11px] sm:text-xs gap-1"
-            onClick={handleAdd}
-          >
-            <Plus className="h-3.5 w-3.5" /> Add
-          </Button>
-          <div className="flex items-center gap-1 sm:gap-2 ml-1 pl-1.5 sm:pl-2 border-l border-border flex-shrink-0">
-            <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:inline">{user?.email}</span>
-            <ThemeToggle />
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={signOut} title="Sign out">
-              <LogOut className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </nav>
-      </header>
-
-      <main className="flex-1 py-4 sm:py-7 px-4 sm:px-8 max-w-full relative z-10">
+      <Box component="main" sx={{
+        flex: 1,
+        py: { xs: 2, sm: 3 },
+        px: { xs: 1.5, sm: 2.5, xl: 3 },
+        maxWidth: 1680,
+        width: '100%',
+        mx: 'auto',
+        pb: { xs: 10, md: 4 },
+      }}>
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/" element={<Dashboard quotations={quotations} forwarders={forwarders} />} />
+            <Route path="/" element={<ErrorBoundary key="dashboard"><Dashboard quotations={quotations} forwarders={forwarders} displayCurrency={displayCurrency} /></ErrorBoundary>} />
             <Route
               path="/quotations"
               element={
-                <QuotationsPage
-                  filters={filters}
-                  onFilterChange={setFilters}
-                  filteredQuotations={filteredQuotations}
-                  quotations={quotations}
-                  forwarders={forwarders}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onAward={handleAward}
-                  onStatusChange={handleStatusChange}
-                />
+                <ErrorBoundary key="quotations">
+                  <QuotationsPage
+                    filters={filters}
+                    onFilterChange={setFilters}
+                    filteredQuotations={filteredQuotations}
+                    quotations={quotations}
+                    forwarders={forwarders}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onAward={handleAward}
+                    onStatusChange={handleStatusChange}
+                  />
+                </ErrorBoundary>
               }
             />
             <Route
               path="/forwarders"
               element={
-                <Forwarders
-                  forwarders={forwarders}
-                  onAdd={handleAddForwarder}
-                  onEdit={handleEditForwarder}
-                  onDelete={handleDeleteForwarder}
-                />
+                <ErrorBoundary key="forwarders">
+                  <Forwarders
+                    forwarders={forwarders}
+                    onAdd={handleAddForwarder}
+                    onEdit={handleEditForwarder}
+                    onDelete={handleDeleteForwarder}
+                  />
+                </ErrorBoundary>
               }
             />
             <Route path="*" element={
-              <div className="text-center py-[60px] px-5 text-muted-foreground">
-                <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <div className="text-[15px] font-medium">Page not found</div>
-              </div>
+              <Box sx={{ textAlign: 'center', py: 7.5, px: 2.5, color: 'text.secondary' }}>
+                <Search sx={{ fontSize: 48, mb: 2, color: 'text.disabled' }} />
+                <Typography variant="body1" fontWeight={500}>Page not found</Typography>
+              </Box>
             } />
           </Routes>
         </Suspense>
-      </main>
+      </Box>
+
+      <MobileNav pendingApprovalsCount={pendingApprovalsCount} onAdd={handleAdd} />
 
       {showForm && (
         <Suspense fallback={<PageLoader />}>
@@ -517,7 +520,7 @@ function AppContent() {
         onSubmit={handleRejectSubmit}
         onCancel={() => setRejectTarget(null)}
       />
-    </div>
+    </>
   );
 }
 
@@ -526,9 +529,7 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <ErrorBoundary>
-            <AppContent />
-          </ErrorBoundary>
+          <AppContent />
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

@@ -1,13 +1,12 @@
-import React, { useState, useCallback } from 'react';
-import { Mail, Phone, Pencil, X, Plus, Truck } from 'lucide-react';
+import { useState, useCallback } from 'react';
 import type { Forwarder } from '../types';
 import { ADMIN_EMAIL } from '../types';
 import { useAuth } from '../auth';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Avatar, AvatarFallback } from './ui/avatar';
+import {
+  Box, Card, CardContent, Typography, Button, TextField,
+  Avatar, IconButton, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+} from '@mui/material';
+import { Mail, Phone, Edit, Close, Add, LocalShipping } from '@mui/icons-material';
 
 interface ForwardersProps {
   forwarders: Forwarder[];
@@ -16,7 +15,7 @@ interface ForwardersProps {
   onDelete: (id: number) => Promise<void>;
 }
 
-const Forwarders = React.memo(function Forwarders({ forwarders, onAdd, onEdit, onDelete }: ForwardersProps) {
+export default function Forwarders({ forwarders, onAdd, onEdit, onDelete }: ForwardersProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const { user } = useAuth();
@@ -28,12 +27,8 @@ const Forwarders = React.memo(function Forwarders({ forwarders, onAdd, onEdit, o
   const [submitting, setSubmitting] = useState(false);
 
   const resetForm = useCallback(() => {
-    setName('');
-    setContactPerson('');
-    setEmail('');
-    setPhone('');
-    setShowForm(false);
-    setEditingId(null);
+    setName(''); setContactPerson(''); setEmail(''); setPhone('');
+    setShowForm(false); setEditingId(null);
   }, []);
 
   const handleAddSubmit = useCallback(async (e: React.FormEvent) => {
@@ -43,11 +38,7 @@ const Forwarders = React.memo(function Forwarders({ forwarders, onAdd, onEdit, o
     try {
       await onAdd({ name: name.trim(), contactPerson: contactPerson.trim(), email: email.trim(), phone: phone.trim() });
       resetForm();
-    } catch (err) {
-      console.error('Failed to add forwarder:', err);
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { /* handled by caller */ } finally { setSubmitting(false); }
   }, [name, contactPerson, email, phone, onAdd, resetForm]);
 
   const handleEditSubmit = useCallback(async (e: React.FormEvent) => {
@@ -57,182 +48,146 @@ const Forwarders = React.memo(function Forwarders({ forwarders, onAdd, onEdit, o
     try {
       await onEdit(editingId, { name: name.trim(), contactPerson: contactPerson.trim(), email: email.trim(), phone: phone.trim() });
       resetForm();
-    } catch (err) {
-      console.error('Failed to update forwarder:', err);
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { /* handled by caller */ } finally { setSubmitting(false); }
   }, [name, contactPerson, email, phone, editingId, onEdit, resetForm]);
 
   const startEdit = useCallback((f: Forwarder) => {
-    setName(f.name);
-    setContactPerson(f.contactPerson);
-    setEmail(f.email);
-    setPhone(f.phone);
-    setEditingId(f.id);
-    setShowForm(true);
+    setName(f.name); setContactPerson(f.contactPerson);
+    setEmail(f.email); setPhone(f.phone);
+    setEditingId(f.id); setShowForm(true);
   }, []);
 
   const isEditing = editingId !== null;
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Hero Banner */}
-      <div className="relative flex justify-between items-center rounded-xl px-8 py-7 text-white overflow-hidden bg-gradient-to-br from-[#312e81] via-[#4338ca] to-[#6366f1]">
-        <div className="absolute -top-1/2 -right-[10%] w-[300px] h-[300px] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.15)_0%,transparent_70%)] pointer-events-none" />
-        <div className="relative z-10">
-          <h2 className="text-2xl font-bold mb-1"><Truck className="inline h-6 w-6 mr-2" /> Forwarders</h2>
-          <p className="text-sm text-white/70">Manage your logistics forwarder partners</p>
-        </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: { sm: 'space-between' },
+        alignItems: { sm: 'center' },
+        gap: 1.5,
+      }}>
+        <Box>
+          <Typography variant="h5" fontWeight={800}>Forwarders</Typography>
+          <Typography variant="body2" color="text.secondary">{forwarders.length} partner{forwarders.length !== 1 ? 's' : ''} registered</Typography>
+        </Box>
         <Button
-          variant="secondary"
-          className="bg-white/20 backdrop-blur-sm text-white border border-white/20 hover:bg-white/30"
+          variant="contained"
           onClick={() => { if (showForm) { resetForm(); } else { setShowForm(true); setEditingId(null); } }}
+          startIcon={showForm ? <Close /> : <Add />}
         >
-          {showForm ? <><X className="h-4 w-4" /> Cancel</> : <><Plus className="h-4 w-4" /> Add Forwarder</>}
+          {showForm ? 'Cancel' : 'Add forwarder'}
         </Button>
-      </div>
+      </Box>
 
-      {/* Add/Edit Forwarder Form */}
       {showForm && (
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">{isEditing ? 'Edit Forwarder' : 'New Forwarder'}</CardTitle>
-          </CardHeader>
           <CardContent>
-            <form onSubmit={isEditing ? handleEditSubmit : handleAddSubmit}>
-              <div className="grid grid-cols-4 gap-4 max-[1200px]:grid-cols-2 max-[900px]:grid-cols-1">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="fwd-name">Company Name *</Label>
-                  <Input
-                    id="fwd-name"
-                    placeholder="e.g. DHL, Agility"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="fwd-contact">Contact Person</Label>
-                  <Input
-                    id="fwd-contact"
-                    placeholder="e.g. John Smith"
-                    value={contactPerson}
-                    onChange={e => setContactPerson(e.target.value)}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="fwd-email">Email</Label>
-                  <Input
-                    id="fwd-email"
-                    type="email"
-                    placeholder="e.g. john@company.com"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="fwd-phone">Phone</Label>
-                  <Input
-                    id="fwd-phone"
-                    placeholder="e.g. +971 50 123 4567"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="mt-5 flex justify-end gap-2.5 pt-4 border-t border-border">
-                <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>
-                <Button type="submit" disabled={submitting}>
+            <Typography variant="h6" sx={{ fontSize: '1rem', mb: 2 }}>{isEditing ? 'Edit Forwarder' : 'New Forwarder'}</Typography>
+            <Box component="form" onSubmit={isEditing ? handleEditSubmit : handleAddSubmit}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField label="Company Name *" placeholder="e.g. DHL, Agility"
+                    value={name} onChange={e => setName(e.target.value)} required fullWidth size="small" />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField label="Contact Person" placeholder="e.g. John Smith"
+                    value={contactPerson} onChange={e => setContactPerson(e.target.value)} fullWidth size="small" />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField label="Email" type="email" placeholder="e.g. john@company.com"
+                    value={email} onChange={e => setEmail(e.target.value)} fullWidth size="small" />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField label="Phone" placeholder="e.g. +971 50 123 4567"
+                    value={phone} onChange={e => setPhone(e.target.value)} fullWidth size="small" />
+                </Grid>
+              </Grid>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Button variant="outlined" onClick={resetForm}>Cancel</Button>
+                <Button type="submit" variant="contained" disabled={submitting}>
                   {submitting ? (isEditing ? 'Saving...' : 'Adding...') : (isEditing ? 'Save Changes' : 'Add Forwarder')}
                 </Button>
-              </div>
-            </form>
+              </Box>
+            </Box>
           </CardContent>
         </Card>
       )}
 
-      {/* Forwarders Grid / Empty State */}
       {forwarders.length === 0 ? (
-        <Card className="p-[60px_20px] text-center">
+        <Card sx={{ textAlign: 'center', py: 6 }}>
           <CardContent>
-            <Truck className="h-14 w-14 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-1">No forwarders yet</h3>
-            <p className="text-sm text-muted-foreground">Add your first forwarder to get started.</p>
+            <LocalShipping sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+            <Typography variant="h6" gutterBottom>No forwarders yet</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>Add your first forwarder to get started.</Typography>
+            <Button variant="contained" startIcon={<Add />} onClick={() => setShowForm(true)}>Add Forwarder</Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-3 gap-4 max-[1200px]:grid-cols-2 max-[900px]:grid-cols-1">
-          {forwarders.map((f) => (
-            <Card key={f.id} className="relative overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg">
-              <CardContent className="p-5">
-                <div className="flex items-start gap-3.5 mb-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-gradient-to-br from-primary to-cyan-400 text-white text-xl font-bold rounded-[14px]">
-                      {f.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[17px] font-bold tracking-tight mb-0.5">{f.name}</h3>
-                    {f.contactPerson && <p className="text-[13px] text-muted-foreground">{f.contactPerson}</p>}
-                  </div>
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ bgcolor: 'action.hover', fontWeight: 700 }}>Company</TableCell>
+                <TableCell sx={{ bgcolor: 'action.hover', fontWeight: 700 }}>Contact</TableCell>
+                <TableCell sx={{ bgcolor: 'action.hover', fontWeight: 700 }}>Email</TableCell>
+                <TableCell sx={{ bgcolor: 'action.hover', fontWeight: 700 }}>Phone</TableCell>
+                {isAdmin && <TableCell align="right" sx={{ bgcolor: 'action.hover', fontWeight: 700, width: 96 }}>Actions</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {forwarders.map(f => (
+                <TableRow key={f.id} hover>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                      <Avatar sx={{ width: 30, height: 30, bgcolor: 'action.selected', color: 'primary.main', fontWeight: 800, borderRadius: 1, fontSize: '0.875rem' }}>
+                        {f.name.charAt(0)}
+                      </Avatar>
+                      <Typography variant="body2" fontWeight={700} noWrap>{f.name}</Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color={f.contactPerson ? 'text.primary' : 'text.disabled'} noWrap>
+                      {f.contactPerson || '-'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    {f.email ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                        <Mail fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary" noWrap>{f.email}</Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.disabled">-</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {f.phone ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                        <Phone fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary" noWrap>{f.phone}</Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.disabled">-</Typography>
+                    )}
+                  </TableCell>
                   {isAdmin && (
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                        title="Edit forwarder"
-                        aria-label={`Edit ${f.name}`}
-                        onClick={() => startEdit(f)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Delete forwarder"
-                        aria-label={`Delete ${f.name}`}
-                        onClick={() => onDelete(f.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <TableCell align="right">
+                      <IconButton size="small" color="primary" onClick={() => startEdit(f)}>
+                        <Edit fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => onDelete(f.id)}>
+                        <Close fontSize="small" />
+                      </IconButton>
+                    </TableCell>
                   )}
-                </div>
-
-                <div className="flex flex-col gap-2 pt-3.5 border-t border-border">
-                  {f.email && (
-                    <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-                      <Mail className="h-4 w-4 shrink-0" />
-                      <span className="overflow-hidden text-ellipsis whitespace-nowrap">{f.email}</span>
-                    </div>
-                  )}
-                  {f.phone && (
-                    <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-                      <Phone className="h-4 w-4 shrink-0" />
-                      <span className="overflow-hidden text-ellipsis whitespace-nowrap">{f.phone}</span>
-                    </div>
-                  )}
-                  {!f.email && !f.phone && (
-                    <div className="flex items-center gap-2 text-[13px] text-muted-foreground italic">
-                      No contact details
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
-
-      {/* Summary */}
-      <div className="text-center text-xs text-muted-foreground py-2">
-        {forwarders.length} forwarder{forwarders.length !== 1 ? 's' : ''} registered
-      </div>
-    </div>
+    </Box>
   );
-});
-
-export default Forwarders;
+}

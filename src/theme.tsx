@@ -1,5 +1,8 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { ThemeProvider as MuiThemeProvider, CssBaseline } from '@mui/material';
+import { getTheme } from './mui-theme';
+import { SnackbarProvider } from './snackbar';
 
 type Theme = 'dark' | 'light';
 
@@ -9,18 +12,17 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: 'light',
   toggleTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('qm-theme');
-    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    return (saved === 'light' || saved === 'dark') ? saved : 'light';
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('qm-theme', theme);
   }, [theme]);
 
@@ -28,9 +30,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   }, []);
 
+  const muiTheme = useMemo(() => getTheme(theme), [theme]);
+
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
+      <MuiThemeProvider theme={muiTheme}>
+        <CssBaseline />
+        <SnackbarProvider>
+          {children}
+        </SnackbarProvider>
+      </MuiThemeProvider>
     </ThemeContext.Provider>
   );
 }

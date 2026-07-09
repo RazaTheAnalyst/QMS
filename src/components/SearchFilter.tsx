@@ -1,16 +1,11 @@
 import { useCallback } from 'react';
-import { Search, X } from 'lucide-react';
 import { ENTITIES, STATUS_LIST } from '../types';
 import type { Filters } from '../types';
-import { Input } from './ui/input';
-import { Badge } from './ui/badge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
+  Box, TextField, FormControl, InputLabel, Select, MenuItem,
+  Chip, InputAdornment, IconButton,
+} from '@mui/material';
+import { Search, Close } from '@mui/icons-material';
 
 interface SearchFilterProps {
   filters: Filters;
@@ -18,6 +13,12 @@ interface SearchFilterProps {
   resultCount?: number;
   totalCount?: number;
 }
+
+const ENTITY_CHIP_COLORS: Record<string, string> = {
+  UAE: '#7c3aed',
+  Qatar: '#2563eb',
+  Oman: '#059669',
+};
 
 export default function SearchFilter({ filters, onFilterChange, resultCount, totalCount }: SearchFilterProps) {
   const handleChange = useCallback((key: keyof Filters, value: string) => {
@@ -27,58 +28,67 @@ export default function SearchFilter({ filters, onFilterChange, resultCount, tot
   const hasActiveFilters = filters.search || filters.entity || filters.status;
 
   return (
-    <div className="flex flex-wrap gap-3 items-center">
-      <div className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Search supplier, PO, forwarder, mode, origin..."
-          value={filters.search}
-          onChange={(e) => handleChange('search', e.target.value)}
-          className="pl-10 pr-10"
-        />
-        {filters.search && (
-          <button
-            onClick={() => handleChange('search', '')}
-            aria-label="Clear search"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-      <Select
-        value={filters.entity || 'all'}
-        onValueChange={(value) => handleChange('entity', value === 'all' ? '' : value)}
-      >
-        <SelectTrigger className="w-[160px]">
-          <SelectValue placeholder="All Entities" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Entities</SelectItem>
+    <Box sx={{
+      display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center',
+      borderRadius: 1.5, border: '1px solid', borderColor: 'divider',
+      bgcolor: 'background.paper', p: 1.5, position: 'relative', overflow: 'hidden',
+      borderLeft: '4px solid',
+      borderLeftColor: '#6366f1',
+    }}>
+      <TextField
+        placeholder="Search supplier, PO, forwarder, mode, origin..."
+        value={filters.search}
+        onChange={(e) => handleChange('search', e.target.value)}
+        size="small"
+        sx={{ flex: '1 1 240px', '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
+        InputProps={{
+          startAdornment: <InputAdornment position="start"><Search fontSize="small" color="action" /></InputAdornment>,
+          endAdornment: filters.search ? (
+            <InputAdornment position="end">
+              <IconButton size="small" onClick={() => handleChange('search', '')}>
+                <Close fontSize="small" />
+              </IconButton>
+            </InputAdornment>
+          ) : undefined,
+        }}
+      />
+      <FormControl size="small" sx={{ minWidth: 140 }}>
+        <InputLabel>Entity</InputLabel>
+        <Select
+          value={filters.entity || 'all'}
+          label="Entity"
+          onChange={(e) => handleChange('entity', e.target.value === 'all' ? '' : e.target.value)}
+        >
+          <MenuItem value="all">All Entities</MenuItem>
           {ENTITIES.map(e => (
-            <SelectItem key={e} value={e}>{e}</SelectItem>
+            <MenuItem key={e} value={e}>
+              <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: ENTITY_CHIP_COLORS[e] }} />
+                {e}
+              </Box>
+            </MenuItem>
           ))}
-        </SelectContent>
-      </Select>
-      <Select
-        value={filters.status || 'all'}
-        onValueChange={(value) => handleChange('status', value === 'all' ? '' : value)}
-      >
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="All Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          {STATUS_LIST.map(s => (
-            <SelectItem key={s} value={s}>{s}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {hasActiveFilters && resultCount !== undefined && totalCount !== undefined && (
-        <Badge variant="secondary">
-          {resultCount === totalCount ? `${totalCount} total` : `${resultCount} of ${totalCount} found`}
-        </Badge>
-      )}
-    </div>
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 160 }}>
+        <InputLabel>Status</InputLabel>
+        <Select
+          value={filters.status || 'all'}
+          label="Status"
+          onChange={(e) => handleChange('status', e.target.value === 'all' ? '' : e.target.value)}
+        >
+          <MenuItem value="all">All Status</MenuItem>
+          {STATUS_LIST.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+        </Select>
+      </FormControl>
+      <Chip
+        label={resultCount !== undefined && totalCount !== undefined
+          ? resultCount === totalCount ? `${totalCount} total` : `${resultCount} of ${totalCount}`
+          : 'All quotations'}
+        variant={hasActiveFilters ? 'filled' : 'outlined'}
+        size="small"
+        sx={{ height: 36, fontWeight: 600 }}
+      />
+    </Box>
   );
 }

@@ -3,7 +3,7 @@ import { ENTITIES, STATUS_LIST } from '../types';
 
 describe('Types constants', () => {
   it('has correct entities', () => {
-    expect(ENTITIES).toEqual(['UAE', 'Qatar', 'Oman', 'KSA']);
+    expect(ENTITIES).toEqual(['UAE', 'Qatar', 'Oman']);
   });
 
   it('has correct status list', () => {

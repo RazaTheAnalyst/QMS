@@ -47,8 +47,13 @@ export function useStore() {
     const optimistic: Quotation = {
       id: Date.now(),
       ...input,
+      poValueCurrency: input.poValueCurrency ?? 'AED',
       percentage: 0,
       quotes: input.quotes ?? [],
+      createdBy: input.createdBy ?? '',
+      createdAt: input.createdAt ?? '',
+      approvedBy: input.approvedBy ?? '',
+      approvedAt: input.approvedAt ?? '',
     };
     setQuotations(prev => [...prev, optimistic]);
     try {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen } from './test-utils';
 import userEvent from '@testing-library/user-event';
 import SearchFilter from '../components/SearchFilter';
 import type { Filters } from '../types';
@@ -17,20 +17,26 @@ describe('SearchFilter', () => {
     expect(screen.getByPlaceholderText(/Search supplier, PO, forwarder/)).toBeInTheDocument();
   });
 
-  it('renders entity dropdown with options', () => {
+  it('renders entity dropdown with options', async () => {
+    const user = userEvent.setup();
     render(<SearchFilter filters={defaultFilters} onFilterChange={mockOnChange} />);
-    const select = screen.getAllByRole('combobox')[0];
+    const select = screen.getAllByRole('combobox')[0]!;
     expect(select).toBeInTheDocument();
     expect(screen.getByText('All Entities')).toBeInTheDocument();
-    expect(screen.getByText('UAE')).toBeInTheDocument();
-    expect(screen.getByText('Qatar')).toBeInTheDocument();
+    await user.click(select);
+    expect(screen.getByRole('option', { name: 'UAE' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Qatar' })).toBeInTheDocument();
   });
 
-  it('renders status dropdown with options', () => {
+  it('renders status dropdown with options', async () => {
+    const user = userEvent.setup();
     render(<SearchFilter filters={defaultFilters} onFilterChange={mockOnChange} />);
-    expect(screen.getByText('All Status')).toBeInTheDocument();
-    expect(screen.getByText('Sent for quotation')).toBeInTheDocument();
-    expect(screen.getByText('Delivered')).toBeInTheDocument();
+    const selects = screen.getAllByRole('combobox');
+    const statusSelect = selects[1]!;
+    expect(statusSelect).toBeInTheDocument();
+    await user.click(statusSelect);
+    expect(screen.getByRole('option', { name: 'Sent for quotation' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Delivered' })).toBeInTheDocument();
   });
 
   it('calls onFilterChange when search input changes', async () => {

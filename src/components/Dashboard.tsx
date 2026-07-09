@@ -1,68 +1,70 @@
-import React, { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ENTITIES, CURRENCY_LIST, convertCurrency } from '../types';
+import { ENTITIES, convertCurrency } from '../types';
 import { ADMIN_EMAIL } from '../types';
 import type { Quotation, Forwarder } from '../types';
 import { useAuth } from '../auth';
-
-const FORWARDER_GRADIENTS = [
-  'linear-gradient(90deg, #f59e0b, #fbbf24)',
-  'linear-gradient(90deg, #6366f1, #818cf8)',
-  'linear-gradient(90deg, #06b6d4, #22d3ee)',
-  'linear-gradient(90deg, #10b981, #34d399)',
-  'linear-gradient(90deg, #ec4899, #f472b6)',
-  'linear-gradient(90deg, #f97316, #fb923c)',
-  'linear-gradient(90deg, #8b5cf6, #a78bfa)',
-  'linear-gradient(90deg, #14b8a6, #5eead4)',
-  'linear-gradient(90deg, #e11d48, #fb7185)',
-  'linear-gradient(90deg, #0ea5e9, #38bdf8)',
-];
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
-import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
 import { formatCurrency } from '@/lib/utils';
+import {
+  Box, Card, CardContent, Typography, Grid, LinearProgress, Chip,
+} from '@mui/material';
+import {
+  DescriptionOutlined, AttachMoneyOutlined, LocalShippingOutlined,
+  TrendingUpOutlined, AccountBalanceWalletOutlined,
+} from '@mui/icons-material';
 
 interface DashboardProps {
   quotations: Quotation[];
   forwarders: Forwarder[];
+  displayCurrency: string;
 }
 
-const ENTITY_GRADIENT: Record<string, string> = {
-  UAE: 'linear-gradient(135deg, var(--cyan-bg), var(--primary-bg))',
-  Qatar: 'linear-gradient(135deg, var(--purple-bg), var(--pink-bg))',
-  Oman: 'linear-gradient(135deg, var(--success-bg), rgba(52,211,153,0.05))',
-  KSA: 'linear-gradient(135deg, var(--warning-bg), rgba(251,191,36,0.05))',
+const ENTITY_COLORS: Record<string, { main: string; gradient: string }> = {
+  UAE: { main: '#7c3aed', gradient: 'linear-gradient(135deg, #7c3aed, #a78bfa)' },
+  Qatar: { main: '#2563eb', gradient: 'linear-gradient(135deg, #2563eb, #60a5fa)' },
+  Oman: { main: '#059669', gradient: 'linear-gradient(135deg, #059669, #34d399)' },
 };
 
-const STAT_TOP_GRADIENT: Record<string, string> = {
-  purple: 'linear-gradient(90deg, var(--purple), var(--primary))',
-  cyan: 'linear-gradient(90deg, var(--cyan), var(--info))',
-  green: 'linear-gradient(90deg, var(--success), var(--success))',
-  amber: 'linear-gradient(90deg, var(--warning), var(--warning))',
-  pink: 'linear-gradient(90deg, var(--pink), var(--pink))',
+function entityColor(entity: string): { main: string; gradient: string } {
+  return (ENTITY_COLORS[entity] || ENTITY_COLORS['UAE'])!;
+}
+
+const STAT_CARD_STYLES: Record<string, { gradient: string; accent: string; icon: React.ReactNode }> = {
+  pos: {
+    gradient: 'linear-gradient(135deg, #f1f5ff 0%, #eef2ff 100%)',
+    accent: '#4f46e5',
+    icon: <DescriptionOutlined />,
+  },
+  povalue: {
+    gradient: 'linear-gradient(135deg, #eef9ff 0%, #e0f7fa 100%)',
+    accent: '#0284c7',
+    icon: <AttachMoneyOutlined />,
+  },
+  freight: {
+    gradient: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+    accent: '#d97706',
+    icon: <LocalShippingOutlined />,
+  },
+  pct: {
+    gradient: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+    accent: '#9333ea',
+    icon: <TrendingUpOutlined />,
+  },
+  savings: {
+    gradient: 'linear-gradient(135deg, #ecfdf5 0%, #dff8ea 100%)',
+    accent: '#059669',
+    icon: <AccountBalanceWalletOutlined />,
+  },
 };
 
-const STAT_ICON_STYLE: Record<string, { bg: string; color: string }> = {
-  purple: { bg: 'var(--purple-bg)', color: 'var(--purple)' },
-  cyan: { bg: 'var(--cyan-bg)', color: 'var(--cyan)' },
-  green: { bg: 'var(--success-bg)', color: 'var(--success)' },
-  amber: { bg: 'var(--warning-bg)', color: 'var(--warning)' },
-  pink: { bg: 'var(--pink-bg)', color: 'var(--pink)' },
-};
+const FORWARDER_COLORS = [
+  '#6366f1', '#0ea5e9', '#f59e0b', '#10b981', '#d946ef', '#f43f5e',
+  '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#ec4899',
+];
 
-const H3_ACCENT_BAR = { background: 'linear-gradient(180deg, var(--primary), var(--cyan))' };
-
-const Dashboard = React.memo(function Dashboard({ quotations, forwarders }: DashboardProps) {
+export default function Dashboard({ quotations, forwarders, displayCurrency }: DashboardProps) {
   const { user } = useAuth();
   const isAdmin = user?.email === ADMIN_EMAIL;
-  const [displayCurrency, setDisplayCurrency] = useState<string>('AED');
   const safeNum = (v: number) => (Number.isFinite(v) ? v : 0);
 
   const activeQuotations = useMemo(() =>
@@ -134,147 +136,221 @@ const Dashboard = React.memo(function Dashboard({ quotations, forwarders }: Dash
     return { entity: e, count: items.length, totalValue: entityPOValue, freight: entityFreight, freightPct: entityFreightPct };
   }), [activeQuotations, displayCurrency]);
 
-  const statCards: Array<{ key: string; color: string; icon: string; label: string; value: string; sub: string }> = [
-    { key: 'pos', color: 'purple', icon: '📄', label: 'Total POs', value: String(totalQuotations), sub: `${ENTITIES.length} entities` },
-    { key: 'povalue', color: 'cyan', icon: '💵', label: 'Total PO Value', value: formatCurrency(totalPOValue), sub: displayCurrency },
-    { key: 'freight', color: 'pink', icon: '🚛', label: 'Freight Spending', value: formatCurrency(totalFreightSpending), sub: displayCurrency },
-    { key: 'pct', color: 'amber', icon: '📈', label: 'Freight vs PO', value: `${freightVsPO}%`, sub: 'of PO value' },
-    { key: 'savings', color: 'green', icon: '💵', label: 'Total Savings', value: formatCurrency(totalSavings), sub: `${displayCurrency} saved` },
+  const statCards = [
+    { key: 'pos', label: 'Total POs', value: String(totalQuotations), sub: `${ENTITIES.length} entities` },
+    { key: 'povalue', label: 'Total PO Value', value: formatCurrency(totalPOValue), sub: displayCurrency },
+    { key: 'freight', label: 'Freight Spending', value: formatCurrency(totalFreightSpending), sub: displayCurrency },
+    { key: 'pct', label: 'Freight vs PO', value: `${freightVsPO}%`, sub: 'of PO value' },
+    { key: 'savings', label: 'Total Savings', value: formatCurrency(totalSavings), sub: `${displayCurrency} saved` },
   ];
 
   return (
-    <div className="flex flex-col gap-7">
-      {/* Hero Banner */}
-      <div
-        className="relative overflow-hidden rounded-xl px-10 py-9 flex flex-col md:flex-row md:items-center md:justify-between gap-4 transition-all duration-300"
-        style={{ background: 'var(--hero-bg)', color: 'var(--hero-text)' }}
-      >
-        <div
-          className="absolute inset-0 opacity-20 pointer-events-none"
-          style={{ background: 'linear-gradient(135deg, var(--primary), var(--cyan), transparent)' }}
-        />
-        <div className="relative z-10">
-          <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
-          <p style={{ color: 'var(--hero-text-secondary)' }} className="text-sm">Overview of your quotation activity</p>
-        </div>
-        <div className="relative z-10 flex items-center gap-3">
-          <Select value={displayCurrency} onValueChange={setDisplayCurrency}>
-            <SelectTrigger className="w-[130px] h-9 text-xs bg-card/80 backdrop-blur">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CURRENCY_LIST.map(c => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {isAdmin && pendingApprovalsCount > 0 && (
-            <Link to="/quotations">
-              <Badge variant="warning" className="text-xs cursor-pointer">
-                {pendingApprovalsCount} pending approval{pendingApprovalsCount !== 1 ? 's' : ''}
-              </Badge>
-            </Link>
-          )}
-        </div>
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.5 }}>
+        {isAdmin && pendingApprovalsCount > 0 && (
+          <Chip
+            component={Link}
+            to="/quotations"
+            label={`${pendingApprovalsCount} pending approval${pendingApprovalsCount !== 1 ? 's' : ''}`}
+            color="warning"
+            size="small"
+            clickable
+            sx={{ fontWeight: 600, cursor: 'pointer' }}
+          />
+        )}
+      </Box>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {statCards.map((stat) => (
-          <Card key={stat.key} className="relative overflow-hidden group hover:shadow-lg transition-all duration-300">
-            <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: STAT_TOP_GRADIENT[stat.color] }} />
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                  style={{ background: STAT_ICON_STYLE[stat.color]?.bg, color: STAT_ICON_STYLE[stat.color]?.color }}
-                >
-                  {stat.icon}
-                </div>
-              </div>
-              <div className="text-2xl font-bold mb-0.5">{stat.value}</div>
-              <div className="text-xs text-muted-foreground font-medium">{stat.label}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">{stat.sub}</div>
+      <Grid container spacing={1.5}>
+        {statCards.map((stat) => {
+          const style = STAT_CARD_STYLES[stat.key]!;
+          return (
+            <Grid item xs={6} sm={4} lg={2.4} key={stat.key}>
+              <Card sx={{
+                background: style.gradient,
+                color: 'text.primary',
+                border: '1px solid',
+                borderColor: 'rgba(23,32,31,0.08)',
+                boxShadow: '0 12px 28px -24px rgba(23,32,31,0.55)',
+                '& .MuiCardContent-root:last-child': { pb: 2 },
+                transition: 'transform 0.2s, box-shadow 0.3s',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 16px 36px -26px rgba(23,32,31,0.75)',
+                },
+              }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
+                        {stat.label}
+                      </Typography>
+                      <Typography variant="h5" sx={{ color: style.accent, mt: 0.5, fontWeight: 850 }}>
+                        {stat.value}
+                      </Typography>
+                    </Box>
+                    <Box sx={{
+                      width: 40, height: 40, borderRadius: 1.5,
+                      bgcolor: `${style.accent}18`,
+                      border: '1px solid',
+                      borderColor: `${style.accent}24`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: style.accent,
+                    }}>
+                      {style.icon}
+                    </Box>
+                  </Box>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontWeight: 600 }}>
+                    {stat.sub}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          );
+        })}
+      </Grid>
+
+      <Box sx={{ height: 1, bgcolor: 'divider', mx: 0 }} />
+
+      <Grid container spacing={2.5}>
+        <Grid item xs={12} lg={6}>
+          <Card sx={{ borderTop: '3px solid', borderTopColor: '#6366f1' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+                <Box sx={{
+                  width: 32, height: 32, borderRadius: 1,
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+                }}>
+                  <LocalShippingOutlined sx={{ fontSize: 16 }} />
+                </Box>
+                <Typography variant="h6" sx={{ fontSize: '1rem' }}>Forwarder Performance</Typography>
+              </Box>
+              {forwarderStats.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>No data yet</Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {forwarderStats.map((f, i) => {
+                    const color = FORWARDER_COLORS[i % FORWARDER_COLORS.length];
+                    return (
+                      <Box key={f.forwarder} sx={{
+                        borderRadius: 1.5, border: '1px solid', borderColor: 'divider',
+                        bgcolor: 'action.hover', p: 1.5, transition: 'all 0.2s',
+                        '&:hover': { borderColor: color, boxShadow: `0 0 0 1px ${color}40` },
+                      }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{
+                              width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0,
+                            }} />
+                            <Typography variant="body2" fontWeight={600} noWrap>{f.forwarder}</Typography>
+                          </Box>
+                          <Typography variant="caption" sx={{ color: color, fontWeight: 700 }}>
+                            {f.count} award{f.count !== 1 ? 's' : ''}
+                          </Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={Math.min((f.totalValue / maxForwarderValue) * 100, 100)}
+                          sx={{
+                            backgroundColor: `${color}20`,
+                            '& .MuiLinearProgress-bar': {
+                              backgroundColor: color,
+                              backgroundImage: `linear-gradient(90deg, ${color}, ${color}cc)`,
+                              borderRadius: 4,
+                            },
+                          }}
+                        />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {formatCurrency(f.totalValue)} {displayCurrency}
+                          </Typography>
+                          <Typography variant="caption" fontWeight={700} color={color}>
+                            {maxForwarderValue > 0 ? Math.round((f.totalValue / maxForwarderValue) * 100) : 0}%
+                          </Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </Grid>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Forwarder Performance */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <span className="w-1 h-5 rounded" style={H3_ACCENT_BAR} />
-              Forwarder Performance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {forwarderStats.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No data yet</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {forwarderStats.map((f, idx) => (
-                  <div key={f.forwarder}>
-                    <div className="flex items-center justify-between text-sm mb-1.5">
-                      <span className="font-medium">{f.forwarder}</span>
-                      <span className="text-muted-foreground">{f.count} award{f.count !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-subtle)' }}>
-                      <div
-                        className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
-                        style={{ width: `${(f.totalValue / maxForwarderValue) * 100}%`, background: FORWARDER_GRADIENTS[idx % FORWARDER_GRADIENTS.length] }}
-                      />
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">{formatCurrency(f.totalValue)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Entity Breakdown */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <span className="w-1 h-5 rounded" style={H3_ACCENT_BAR} />
-              Entity Breakdown
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-3">
-              {entityStats.map((es) => (
-                <div key={es.entity} className="rounded-xl p-4 border border-border/50 transition-all duration-300 hover:shadow-sm" style={{ background: ENTITY_GRADIENT[es.entity] }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge variant="secondary" className="text-[11px] uppercase font-bold">{es.entity}</Badge>
-                    <span className="text-xs text-muted-foreground">{es.count} quotation{es.count !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">PO Value</div>
-                      <div className="text-sm font-bold">{formatCurrency(es.totalValue)}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Freight</div>
-                      <div className="text-sm font-bold">{formatCurrency(es.freight)}</div>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-muted-foreground">Freight %</span>
-                      <span className="font-semibold">{es.freightPct}%</span>
-                    </div>
-                    <Progress value={parseFloat(es.freightPct)} className="h-1.5" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+        <Grid item xs={12} lg={6}>
+          <Card sx={{ borderTop: '3px solid', borderTopColor: '#7c3aed' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+                <Box sx={{
+                  width: 32, height: 32, borderRadius: 1,
+                  background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+                }}>
+                  <DescriptionOutlined sx={{ fontSize: 16 }} />
+                </Box>
+                <Typography variant="h6" sx={{ fontSize: '1rem' }}>Entity Breakdown</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {entityStats.map(es => {
+                  const ec = entityColor(es.entity);
+                  return (
+                    <Card key={es.entity} variant="outlined" sx={{
+                      borderRadius: 1.5, overflow: 'hidden',
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 8px 24px rgba(0,0,0,0.08)' },
+                    }}>
+                      <Box sx={{ height: 6, background: ec.gradient }} />
+                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{
+                              width: 10, height: 10, borderRadius: '50%', bgcolor: ec.main, flexShrink: 0,
+                            }} />
+                            <Typography variant="subtitle2" fontWeight={700}>{es.entity}</Typography>
+                          </Box>
+                          <Chip label={`${es.count} quotation${es.count !== 1 ? 's' : ''}`} size="small"
+                            sx={{ fontWeight: 600, fontSize: '0.6875rem', bgcolor: `${ec.main}15`, color: ec.main }} />
+                        </Box>
+                        <Grid container spacing={1.5}>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary" fontWeight={700}>PO Value</Typography>
+                            <Typography variant="body2" fontWeight={700} sx={{ fontFamily: 'monospace' }}>
+                              {formatCurrency(es.totalValue)}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" color="text.secondary" fontWeight={700}>Freight</Typography>
+                            <Typography variant="body2" fontWeight={700} sx={{ fontFamily: 'monospace' }}>
+                              {formatCurrency(es.freight)}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                        <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">Freight %</Typography>
+                            <Typography variant="caption" fontWeight={700} sx={{ color: ec.main }}>{es.freightPct}%</Typography>
+                          </Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={Math.min(parseFloat(es.freightPct), 100)}
+                            sx={{
+                              backgroundColor: `${ec.main}20`,
+                              '& .MuiLinearProgress-bar': {
+                                background: ec.gradient,
+                                borderRadius: 4,
+                              },
+                            }}
+                          />
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
   );
-});
-
-export default Dashboard;
+}

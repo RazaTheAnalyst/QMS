@@ -1,7 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from './test-utils';
 import Dashboard from '../components/Dashboard';
 import type { Quotation, Forwarder } from '../types';
+
+vi.mock('../auth', () => ({
+  useAuth: () => ({
+    user: { email: 'admin@netceedmea.com' },
+    session: {},
+    loading: false,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+  }),
+}));
 
 const mockForwarders: Forwarder[] = [
   { id: 1, name: 'BDP', contactPerson: '', email: '', phone: '' },
@@ -55,32 +65,32 @@ const mockQuotations: Quotation[] = [
 
 describe('Dashboard', () => {
   it('renders total POs count', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} />);
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
     expect(screen.getByText('Total POs')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 
   it('renders savings card', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} />);
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
     expect(screen.getByText('Total Savings')).toBeInTheDocument();
   });
 
   it('renders forwarder stats', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} />);
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
     expect(screen.getByText('Forwarder Performance')).toBeInTheDocument();
     expect(screen.getByText('BDP')).toBeInTheDocument();
     expect(screen.getByText('ECU')).toBeInTheDocument();
   });
 
   it('renders entity stats', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} />);
-    expect(screen.getByText('By Entity')).toBeInTheDocument();
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
+    expect(screen.getByText('Entity Breakdown')).toBeInTheDocument();
     expect(screen.getByText('UAE')).toBeInTheDocument();
     expect(screen.getByText('Qatar')).toBeInTheDocument();
   });
 
   it('formats currency values correctly', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} />);
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
     expect(screen.getByText('300,000.00')).toBeInTheDocument();
   });
 });

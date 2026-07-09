@@ -1,33 +1,130 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { FileText, Clock, XCircle, Search, Info, Download, Check, Star, AlertTriangle, Edit, Trash2, Lock, Send, Mail, DollarSign, ArrowRight, Clock3 } from 'lucide-react';
-import { STATUS_LIST, convertCurrency } from '../types';
-import { ADMIN_EMAIL } from '../types';
+import { useState, useMemo, useCallback } from 'react';
+import {
+  STATUS_LIST, convertCurrency, ADMIN_EMAIL,
+} from '../types';
 import type { Quotation, Forwarder } from '../types';
 import { useAuth } from '../auth';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Card, CardContent } from './ui/card';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { cn, getModeIcon, formatCurrency } from '@/lib/utils';
+import { getModeIcon, formatCurrency } from '@/lib/utils';
+import {
+  Alert, AlertTitle,
+  Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Button, Chip, Tabs, Tab, Dialog, DialogTitle, DialogContent,
+  Select, MenuItem, FormControl, Card, CardContent, Typography,
+  useMediaQuery, useTheme,
+} from '@mui/material';
+import {
+  Description, Schedule, Close as XCircle, Search, Download,
+  Check, Star, Warning, Edit, Delete, Lock, Send,
+  AttachMoney, ArrowForward, AccessTime, StarBorder, Inventory,
+} from '@mui/icons-material';
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  'Pending':                { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/30' },
-  'Sent for quotation':     { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/30' },
-  'Awaiting Approval':      { bg: 'bg-orange-500/10', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-500/30' },
-  'Assign to forwarder':    { bg: 'bg-violet-500/10', text: 'text-violet-600 dark:text-violet-400', border: 'border-violet-500/30' },
-  'In Transit':             { bg: 'bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-500/30' },
-  'Arrived Awaiting Clearance': { bg: 'bg-teal-500/10', text: 'text-teal-600 dark:text-teal-400', border: 'border-teal-500/30' },
-  'Under Clearance':        { bg: 'bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-500/30' },
-  'Delivered':              { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/30' },
-  'Rejected':               { bg: 'bg-red-500/10', text: 'text-red-600 dark:text-red-400', border: 'border-red-500/30' },
+const ENTITY_COLORS: Record<string, string> = {
+  UAE: '#7c3aed',
+  Qatar: '#2563eb',
+  Oman: '#059669',
 };
 
-function getStatusStyle(status: string) {
-  return STATUS_STYLES[status] ?? { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' };
+const STATUS_STYLE: Record<string, { color: string; bg: string; darkBg: string }> = {
+  'Awaiting Approval': { color: '#d97706', bg: '#fef3c7', darkBg: 'rgba(217,119,6,0.16)' },
+  'Rejected': { color: '#dc2626', bg: '#fef2f2', darkBg: 'rgba(220,38,38,0.16)' },
+  'Pending': { color: '#f59e0b', bg: '#fffbeb', darkBg: 'rgba(245,158,11,0.16)' },
+  'Sent for quotation': { color: '#6366f1', bg: '#eef2ff', darkBg: 'rgba(99,102,241,0.18)' },
+  'Assign to forwarder': { color: '#2563eb', bg: '#eff6ff', darkBg: 'rgba(37,99,235,0.18)' },
+  'In Transit': { color: '#0891b2', bg: '#ecfeff', darkBg: 'rgba(8,145,178,0.18)' },
+  'Arrived Awaiting Clearance': { color: '#7c3aed', bg: '#f5f3ff', darkBg: 'rgba(124,58,237,0.18)' },
+  'Under Clearance': { color: '#7c3aed', bg: '#f5f3ff', darkBg: 'rgba(124,58,237,0.18)' },
+  'Delivered': { color: '#059669', bg: '#ecfdf5', darkBg: 'rgba(5,150,105,0.18)' },
+};
+
+function getStatusStyle(status: string, mode: 'light' | 'dark') {
+  const style = STATUS_STYLE[status] || {
+    color: '#66736f',
+    bg: '#f5f5f4',
+    darkBg: 'rgba(148,163,184,0.14)',
+  };
+
+  return {
+    color: style.color,
+    bg: mode === 'dark' ? style.darkBg : style.bg,
+    border: mode === 'dark' ? `${style.color}66` : `${style.color}33`,
+  };
+}
+
+const tableHeaderCellSx = {
+  bgcolor: 'background.paper',
+  borderBottom: '1px solid',
+  borderColor: 'divider',
+  boxShadow: '0 1px 0 rgba(23,32,31,0.08)',
+  fontWeight: 800,
+  fontSize: '0.6875rem',
+  letterSpacing: '0.08em',
+  lineHeight: 1.2,
+  py: 1.25,
+  position: 'sticky',
+  textTransform: 'uppercase',
+  top: 0,
+  zIndex: 4,
+};
+
+const statusTabs = [
+  {
+    value: 0,
+    label: 'Active',
+    icon: Description,
+    color: '#0f766e',
+    bg: 'rgba(15,118,110,0.10)',
+  },
+  {
+    value: 1,
+    label: 'Awaiting Approval',
+    icon: Schedule,
+    color: '#b7791f',
+    bg: 'rgba(183,121,31,0.12)',
+  },
+  {
+    value: 2,
+    label: 'Rejected',
+    icon: XCircle,
+    color: '#c2412d',
+    bg: 'rgba(194,65,45,0.10)',
+  },
+  {
+    value: 3,
+    label: 'Delivered',
+    icon: Inventory,
+    color: '#168256',
+    bg: 'rgba(22,130,86,0.10)',
+  },
+];
+
+function displayName(value?: string) {
+  if (!value) return '-';
+  const name = value.split('@')[0]?.replace(/[._-]+/g, ' ').trim();
+  return name ? name.replace(/\b\w/g, char => char.toUpperCase()) : value;
+}
+
+function formatStamp(date?: string) {
+  if (!date) return '-';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return parsed.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function PersonStamp({ name, date }: { name?: string; date?: string }) {
+  return (
+    <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+      <Typography variant="caption" fontWeight={700} color="text.primary" noWrap>{displayName(name)}</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0, fontSize: '0.6875rem' }} noWrap>
+        {formatStamp(date)}
+      </Typography>
+    </Box>
+  );
 }
 
 interface QuotationTableProps {
@@ -37,28 +134,16 @@ interface QuotationTableProps {
   onDelete: (id: number) => void;
   onAward: (id: number, forwarder: string) => void;
   onStatusChange: (id: number, status: string) => void;
+  searchActive?: boolean;
 }
 
-const getEntityVariant = (entity: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info' => {
-  if (entity === 'UAE') return 'default';
-  if (entity === 'Qatar') return 'info';
-  if (entity === 'Oman') return 'success';
-  if (entity === 'KSA') return 'warning';
-  return 'secondary';
-};
-
-const EmptyState = () => (
-  <div className="text-center py-[60px] px-5 text-muted-foreground flex flex-col items-center justify-center">
-    <Search className="h-12 w-12 mb-4 text-muted-foreground" />
-    <div className="text-[15px] font-medium">No quotations found</div>
-  </div>
-);
-
-const QuotationTable = React.memo(function QuotationTable({ quotations, forwarders, onEdit, onDelete, onAward, onStatusChange }: QuotationTableProps) {
+export default function QuotationTable({ quotations, forwarders, onEdit, onDelete, onAward, onStatusChange, searchActive = false }: QuotationTableProps) {
   const [detailQuotation, setDetailQuotation] = useState<Quotation | null>(null);
   const { user } = useAuth();
   const isAdmin = user?.email === ADMIN_EMAIL;
-  const [activeTab, setActiveTab] = useState<'active' | 'pending' | 'rejected'>('active');
+  const [activeTab, setActiveTab] = useState(0);
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
 
   const currentQuotation = detailQuotation
     ? (quotations.find(q => q.id === detailQuotation.id) || detailQuotation)
@@ -69,40 +154,42 @@ const QuotationTable = React.memo(function QuotationTable({ quotations, forwarde
     [quotations]
   );
 
+  const activeCount = useMemo(() =>
+    quotations.filter(q => q.status !== 'Awaiting Approval' && q.status !== 'Rejected' && q.status !== 'Delivered').length,
+    [quotations]
+  );
+
   const rejectedCount = useMemo(() =>
     quotations.filter(q => q.status === 'Rejected').length,
     [quotations]
   );
 
+  const deliveredCount = useMemo(() =>
+    quotations.filter(q => q.status === 'Delivered').length,
+    [quotations]
+  );
+
   const displayedQuotations = useMemo(() =>
     quotations.filter(q => {
+      if (searchActive) return true;
       if (!isAdmin) return true;
-      if (activeTab === 'pending') return q.status === 'Awaiting Approval';
-      if (activeTab === 'rejected') return q.status === 'Rejected';
-      return q.status !== 'Awaiting Approval' && q.status !== 'Rejected';
+      if (activeTab === 1) return q.status === 'Awaiting Approval';
+      if (activeTab === 2) return q.status === 'Rejected';
+      if (activeTab === 3) return q.status === 'Delivered';
+      return q.status !== 'Awaiting Approval' && q.status !== 'Rejected' && q.status !== 'Delivered';
     }),
-    [quotations, activeTab, isAdmin]
+    [quotations, activeTab, isAdmin, searchActive]
   );
 
   const exportToExcel = useCallback(async () => {
     try {
       const XLSX = await import('xlsx');
       const data = displayedQuotations.map(q => ({
-        Entity: q.entity,
-        Supplier: q.supplierName,
-        'PO Number': q.supplierPO,
-        'PO Value (AED)': q.poValue,
-        Origin: q.origin,
-        Destination: q.destination,
-        Mode: q.mode,
-        Size: q.size,
-        'Transit Time': q.transitTime,
-        ETD: q.etd,
-        ETA: q.eta,
-        Incoterms: q.incoterms,
-        Status: q.status,
-        'Freight %': q.percentage,
-        'Savings (AED)': q.savings,
+        Entity: q.entity, Supplier: q.supplierName, 'PO Number': q.supplierPO,
+        'PO Value (AED)': q.poValue, Origin: q.origin, Destination: q.destination,
+        Mode: q.mode, Size: q.size, 'Transit Time': q.transitTime,
+        ETD: q.etd, ETA: q.eta, Incoterms: q.incoterms,
+        Status: q.status, 'Freight %': q.percentage, 'Savings (AED)': q.savings,
         'Awarded To': q.awardedTo || '-',
         ...forwarders.reduce((acc, f) => {
           const quote = q.quotes.find(qu => qu.forwarder === f.name);
@@ -119,492 +206,516 @@ const QuotationTable = React.memo(function QuotationTable({ quotations, forwarde
     }
   }, [displayedQuotations, forwarders]);
 
-  const handleRowKeyDown = useCallback((e: React.KeyboardEvent, q: Quotation) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      setDetailQuotation(q);
-    }
-  }, []);
-
   return (
     <>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 py-3">
-        <div>
+      <Box sx={{
+        display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { sm: 'center' }, justifyContent: 'space-between',
+        gap: 1.25, py: 1, px: 1.25, borderRadius: 1.5,
+        border: '1px solid', borderColor: 'divider',
+        bgcolor: 'background.paper',
+        boxShadow: '0 10px 30px -28px rgba(23,32,31,0.45)',
+      }}>
+        <Box sx={{ minWidth: 0, width: { xs: '100%', sm: 'auto' } }}>
           {isAdmin && (
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'pending' | 'rejected')}>
-              <TabsList>
-                <TabsTrigger value="active" className="gap-1.5">
-                  <FileText className="h-4 w-4" />
-                  <span>Active</span>
-                </TabsTrigger>
-                <TabsTrigger value="pending" className="gap-1.5">
-                  <Clock className="h-4 w-4" />
-                  <span>Awaiting Approval</span>
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{pendingApprovalsCount}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="rejected" className="gap-1.5">
-                  <XCircle className="h-4 w-4" />
-                  <span>Rejected</span>
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{rejectedCount}</Badge>
-                </TabsTrigger>
-              </TabsList>
+            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{
+                minHeight: 40,
+                maxWidth: '100%',
+                '& .MuiTabs-flexContainer': { gap: 0.75 },
+                '& .MuiTabs-indicator': { display: 'none' },
+                '& .MuiTab-root': {
+                  minHeight: 38,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1.25,
+                  px: 1.25,
+                  py: 0.5,
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  color: 'text.secondary',
+                  bgcolor: 'background.paper',
+                  textTransform: 'uppercase',
+                },
+              }}>
+              {statusTabs.map(tab => {
+                const Icon = tab.icon;
+                const count = tab.value === 0 ? activeCount : tab.value === 1 ? pendingApprovalsCount : tab.value === 2 ? rejectedCount : deliveredCount;
+                const isActive = activeTab === tab.value;
+                return (
+                  <Tab
+                    key={tab.value}
+                    value={tab.value}
+                    icon={<Icon fontSize="small" />}
+                    iconPosition="start"
+                    sx={{
+                      '&.Mui-selected': {
+                        color: tab.color,
+                        bgcolor: tab.bg,
+                        borderColor: `${tab.color}55`,
+                      },
+                    }}
+                    label={
+                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.65 }}>
+                        {tab.label}
+                        <Chip
+                          label={count}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            minWidth: 22,
+                            fontSize: '0.625rem',
+                            bgcolor: isActive ? tab.color : 'action.selected',
+                            color: isActive ? '#fff' : 'text.secondary',
+                            fontWeight: 800,
+                          }}
+                        />
+                      </Box>
+                    }
+                  />
+                );
+              })}
             </Tabs>
           )}
-        </div>
-        <Button variant="outline" size="sm" onClick={exportToExcel} className="gap-2">
-          <Download className="h-4 w-4" />
+        </Box>
+        <Button variant="outlined" size="small" onClick={exportToExcel}
+          startIcon={<Download />}
+          sx={{ minHeight: 32, borderColor: 'divider', '&:hover': { borderColor: 'primary.main', color: 'primary.main' } }}>
           Export Excel
         </Button>
-      </div>
+      </Box>
 
-      {/* Desktop Table */}
-      <div className="max-[900px]:hidden rounded-xl border bg-card shadow -mx-5 w-[calc(100%+40px)] overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[32px]"></TableHead>
-              <TableHead data-col="entity">Entity</TableHead>
-              <TableHead data-col="supplier">Supplier</TableHead>
-              <TableHead data-col="po">PO</TableHead>
-              <TableHead data-col="value" className="text-right">PO Value</TableHead>
-              <TableHead data-col="origin">Origin</TableHead>
-              <TableHead data-col="dest">Dest</TableHead>
-              <TableHead data-col="mode">Mode</TableHead>
-              <TableHead data-col="status">Status</TableHead>
-              <TableHead data-col="pct" className="text-right">%</TableHead>
-              <TableHead data-col="savings" className="text-right">Savings</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {displayedQuotations.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={11}>
-                  <EmptyState />
-                </TableCell>
+      {!isMobile && (
+        <TableContainer component={Paper} variant="outlined" sx={{
+          maxHeight: 'calc(100vh - 260px)',
+          width: '100%',
+          overflow: 'auto',
+          borderRadius: 1.5,
+          position: 'relative',
+          '& .MuiTableCell-stickyHeader': tableHeaderCellSx,
+          '&::-webkit-scrollbar': { height: 6, width: 6 },
+          '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 3 },
+        }}>
+          <Table size="small" stickyHeader sx={{ minWidth: 1420 }}>
+            <TableHead>
+              <TableRow sx={{ height: 42 }}>
+                <TableCell sx={{ ...tableHeaderCellSx, width: 32 }}></TableCell>
+                <TableCell sx={tableHeaderCellSx}>Entity</TableCell>
+                <TableCell sx={tableHeaderCellSx}>Supplier</TableCell>
+                <TableCell sx={tableHeaderCellSx}>PO</TableCell>
+                <TableCell align="right" sx={tableHeaderCellSx}>PO Value</TableCell>
+                <TableCell sx={tableHeaderCellSx}>Origin</TableCell>
+                <TableCell sx={tableHeaderCellSx}>Dest</TableCell>
+                <TableCell sx={tableHeaderCellSx}>Mode</TableCell>
+                <TableCell sx={tableHeaderCellSx}>Status</TableCell>
+                <TableCell sx={tableHeaderCellSx}>ETD</TableCell>
+                <TableCell sx={tableHeaderCellSx}>ETA</TableCell>
+                <TableCell align="right" sx={tableHeaderCellSx}>Freight %</TableCell>
+                <TableCell align="right" sx={tableHeaderCellSx}>Savings</TableCell>
               </TableRow>
-            ) : (
-              displayedQuotations.map((q) => (
-                <TableRow
-                  key={q.id}
-                  className="cursor-pointer hover:bg-primary/5"
-                  onClick={() => setDetailQuotation(q)}
-                  tabIndex={0}
-                  role="button"
-                  onKeyDown={(e) => handleRowKeyDown(e, q)}
-                  aria-label={`View quotation from ${q.supplierName}`}
-                >
-                  <TableCell>
-                    <Info className="h-3 w-3 text-muted-foreground" />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getEntityVariant(q.entity)} className="text-[11px] uppercase">
-                      {q.entity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-semibold text-[13px] max-w-[140px] overflow-hidden text-ellipsis">{q.supplierName}</TableCell>
-                  <TableCell className="font-mono text-xs">{q.supplierPO}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold text-[13px]">
-                    {formatCurrency(q.poValue)} <span className="text-[10px] text-muted-foreground font-normal">{q.poValueCurrency || 'AED'}</span>
-                  </TableCell>
-                  <TableCell className="text-[13px]">{q.origin}</TableCell>
-                  <TableCell className="text-[13px]">{q.destination}</TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center px-[7px] py-[2px] rounded text-[12px] bg-muted">
-                      {getModeIcon(q.mode)} {q.mode}
-                    </span>
-                  </TableCell>
-                  <TableCell onClick={e => e.stopPropagation()}>
-                    {q.status === 'Awaiting Approval' && isAdmin ? (
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="success" className="h-6 px-2 text-[11px]" onClick={() => onStatusChange(q.id, 'Assign to forwarder')}>
-                          Approve
-                        </Button>
-                        <Button size="sm" variant="destructive" className="h-6 px-2 text-[11px]" onClick={() => onStatusChange(q.id, 'Rejected')}>
-                          Reject
-                        </Button>
-                      </div>
-                    ) : (
-                      <Select
-                        value={q.status}
-                        onValueChange={(value) => onStatusChange(q.id, value)}
-                        disabled={!isAdmin}
-                      >
-                        <SelectTrigger className={cn("h-7 text-[12px] w-auto min-w-[120px]", getStatusStyle(q.status).bg, getStatusStyle(q.status).text, getStatusStyle(q.status).border, "border")} onClick={e => e.stopPropagation()}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STATUS_LIST.map(s => (
-                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-medium">
-                    {Number.isFinite(q.percentage) ? q.percentage : 0}%
-                  </TableCell>
-                  <TableCell className={`text-right font-mono font-semibold ${q.savings < 0 ? 'text-destructive' : 'text-success'}`}>
-                    <div>{q.savings !== 0 ? formatCurrency(Math.abs(q.savings)) : '-'} {q.savings !== 0 && <span className={`text-[10px] font-normal ${q.savings < 0 ? 'text-destructive' : 'text-success'}`}>{q.poValueCurrency || 'AED'}</span>}</div>
-                    {q.savings !== 0 && (q.poValueCurrency || 'AED') !== 'AED' && (
-                      <div className="text-[10px] text-muted-foreground font-normal mt-0.5">
-                        AED {formatCurrency(convertCurrency(Math.abs(q.savings), q.poValueCurrency || 'AED', 'AED'))}
-                      </div>
-                    )}
+            </TableHead>
+            <TableBody>
+              {displayedQuotations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={13} sx={{ textAlign: 'center', py: 6 }}>
+                    <Search sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                    <Typography variant="body1" fontWeight={600}>No quotations found</Typography>
+                    <Typography variant="body2" color="text.secondary">Try adjusting your search or filters.</Typography>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Mobile Cards */}
-      <div className="min-[901px]:hidden flex flex-col gap-3">
-        {displayedQuotations.length === 0 ? (
-          <EmptyState />
-        ) : (
-          displayedQuotations.map((q) => (
-            <Card
-              key={q.id}
-              className="cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg"
-              onClick={() => setDetailQuotation(q)}
-              tabIndex={0}
-              role="button"
-              onKeyDown={(e) => handleRowKeyDown(e, q)}
-              aria-label={`View quotation from ${q.supplierName}`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Badge variant={getEntityVariant(q.entity)} className="text-[11px] uppercase">{q.entity}</Badge>
-                  {q.status === 'Awaiting Approval' && isAdmin ? (
-                    <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                      <Button size="sm" variant="success" className="h-6 px-2.5 text-[11px]" onClick={() => onStatusChange(q.id, 'Assign to forwarder')}>Approve</Button>
-                      <Button size="sm" variant="destructive" className="h-6 px-2.5 text-[11px]" onClick={() => onStatusChange(q.id, 'Rejected')}>Reject</Button>
-                    </div>
-                  ) : (
-                    <Select
-                      value={q.status}
-                      onValueChange={(value) => onStatusChange(q.id, value)}
-                      disabled={!isAdmin}
+              ) : (
+                displayedQuotations.map(q => {
+                  const entityColor = ENTITY_COLORS[q.entity] || '#66736f';
+                  const statusStyle = getStatusStyle(q.status, muiTheme.palette.mode);
+                  return (
+                    <TableRow
+                      key={q.id}
+                      hover
+                      sx={{ cursor: 'pointer', transition: 'all 0.15s', '&:hover td': { bgcolor: `${entityColor}08` } }}
+                      onClick={() => setDetailQuotation(q)}
                     >
-                      <SelectTrigger className={cn("h-7 text-[12px] w-auto min-w-[120px]", getStatusStyle(q.status).bg, getStatusStyle(q.status).text, getStatusStyle(q.status).border, "border")} onClick={e => e.stopPropagation()}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STATUS_LIST.map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <div className="text-base font-semibold mb-1">{q.supplierName}</div>
-                <div className="font-mono text-xs text-muted-foreground mb-1">{q.supplierPO}</div>
-                <div className="text-lg font-bold">{formatCurrency(q.poValue)} <span className="text-xs font-normal text-muted-foreground">{q.poValueCurrency || 'AED'}</span></div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground my-2">
-                  <span>{q.origin}</span>
-                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                  <span>{q.destination}</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className="inline-flex items-center px-[7px] py-[2px] rounded text-[12px] bg-muted">{getModeIcon(q.mode)} {q.mode}</span>
-                  <span className="inline-flex items-center px-[7px] py-[2px] rounded text-[12px] bg-muted">{q.incoterms}</span>
-                  {q.transitTime && (
-                    <span className="inline-flex items-center gap-1 px-2 py-[2px] rounded text-[12px] bg-info/10 text-info">
-                      <Clock3 className="h-3 w-3" />
-                      <span>{q.transitTime}</span>
-                    </span>
-                  )}
-                </div>
-                {q.savings !== 0 && (
-                  <div className={`text-sm font-semibold mt-2 flex items-center gap-1.5 ${q.savings < 0 ? 'text-destructive' : 'text-success'}`}>
-                    <DollarSign className={`h-3.5 w-3.5 ${q.savings < 0 ? 'text-destructive' : 'text-success'}`} />
-                    <span>
-                      {q.savings < 0 ? 'Extra Cost' : 'Savings'}: {q.poValueCurrency || 'AED'} {formatCurrency(Math.abs(q.savings))}
-                      {(q.poValueCurrency || 'AED') !== 'AED' && ` (AED ${formatCurrency(convertCurrency(Math.abs(q.savings), q.poValueCurrency || 'AED', 'AED'))})`}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                  <span className="text-sm font-semibold text-muted-foreground">{Number.isFinite(q.percentage) ? q.percentage : 0}%</span>
-                  <div className="flex items-center gap-2">
-                    {!isAdmin && q.status === 'Awaiting Approval' ? (
-                      <Button variant="outline" size="sm" disabled className="gap-1.5 h-7 px-3 text-xs">
-                        <Lock className="h-3.5 w-3.5" />
-                        Under Review
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="gap-1.5 h-7 px-3 text-xs" onClick={(e) => { e.stopPropagation(); onEdit(q); }}>
-                        <Edit className="h-3.5 w-3.5" />
-                        Edit
-                      </Button>
-                    )}
-                    {isAdmin && (
-                      <Button variant="destructive" size="sm" className="gap-1.5 h-7 px-3 text-xs" onClick={(e) => { e.stopPropagation(); onDelete(q.id); }}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                      <TableCell>
+                        <Box sx={{ width: 3, height: 20, borderRadius: 1.5, bgcolor: entityColor }} />
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={q.entity} size="small"
+                          sx={{ fontWeight: 700, fontSize: '0.6875rem', bgcolor: `${entityColor}15`, color: entityColor }} />
+                      </TableCell>
+                      <TableCell><Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 140 }}>{q.supplierName}</Typography></TableCell>
+                      <TableCell><Typography variant="body2" fontFamily="monospace" color="text.secondary">{q.supplierPO}</Typography></TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight={600} fontFamily="monospace">
+                          {formatCurrency(q.poValue)} <Typography component="span" variant="caption" color="text.secondary">{q.poValueCurrency || 'AED'}</Typography>
+                        </Typography>
+                      </TableCell>
+                      <TableCell><Typography variant="body2" noWrap sx={{ maxWidth: 100 }}>{q.origin}</Typography></TableCell>
+                      <TableCell><Typography variant="body2" noWrap sx={{ maxWidth: 100 }}>{q.destination}</Typography></TableCell>
+                      <TableCell>
+                        <Chip label={`${getModeIcon(q.mode)} ${q.mode}`} size="small" variant="outlined" sx={{ fontSize: '0.75rem' }} />
+                      </TableCell>
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        {q.status === 'Awaiting Approval' && isAdmin ? (
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Button size="small" variant="contained" color="success"
+                              sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem', px: 1 }}
+                              onClick={() => onStatusChange(q.id, 'Assign to forwarder')}>
+                              Approve
+                            </Button>
+                            <Button size="small" variant="contained" color="error"
+                              sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem', px: 1 }}
+                              onClick={() => onStatusChange(q.id, 'Rejected')}>
+                              Reject
+                            </Button>
+                          </Box>
+                        ) : isAdmin ? (
+                          <FormControl size="small" sx={{ minWidth: 168 }}>
+                            <Select
+                              value={q.status}
+                              onChange={(e) => onStatusChange(q.id, e.target.value)}
+                              sx={{
+                                height: 30,
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                color: statusStyle.color,
+                                bgcolor: statusStyle.bg,
+                                borderRadius: 1.25,
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: statusStyle.border,
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: statusStyle.color,
+                                },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: statusStyle.color,
+                                },
+                                '& .MuiSelect-icon': {
+                                  color: statusStyle.color,
+                                },
+                              }}
+                            >
+                              {STATUS_LIST.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                            </Select>
+                          </FormControl>
+                        ) : (
+                          <Chip label={q.status} size="small"
+                            sx={{ fontWeight: 600, fontSize: '0.75rem', bgcolor: statusStyle.bg, color: statusStyle.color }} />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontFamily="monospace" color="text.secondary" noWrap>
+                          {q.etd || '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontFamily="monospace" color="text.secondary" noWrap>
+                          {q.eta || '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontFamily="monospace" fontWeight={600}>{Number.isFinite(q.percentage) ? q.percentage : 0}%</Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight={600} fontFamily="monospace"
+                          color={q.savings < 0 ? 'error' : 'success.main'}>
+                          {q.savings !== 0 ? (
+                            <>{formatCurrency(Math.abs(q.savings))} {q.poValueCurrency || 'AED'}</>
+                          ) : '-'}
+                        </Typography>
+                        {q.savings !== 0 && (q.poValueCurrency || 'AED') !== 'AED' && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            AED {formatCurrency(convertCurrency(Math.abs(q.savings), q.poValueCurrency || 'AED', 'AED'))}
+                          </Typography>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      {isMobile && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {displayedQuotations.length === 0 ? (
+            <Card sx={{ textAlign: 'center', py: 6 }}>
+              <CardContent>
+                <Search sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                <Typography variant="body1" fontWeight={600}>No quotations found</Typography>
+                <Typography variant="body2" color="text.secondary">Try adjusting your search or filters.</Typography>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
-
-      {/* Detail Modal */}
-      <Dialog open={!!currentQuotation} onOpenChange={(open) => { if (!open) setDetailQuotation(null); }}>
-        <DialogContent className="max-w-[820px] max-h-[90vh] overflow-y-auto">
-          {currentQuotation && (() => {
-            const dq = currentQuotation;
-            return (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-3">
-                    <Badge variant={getEntityVariant(dq.entity)} className="text-[11px] uppercase">{dq.entity}</Badge>
-                    <span>{dq.supplierName}</span>
-                    <span className="font-mono text-sm text-muted-foreground">{dq.supplierPO}</span>
-                  </DialogTitle>
-                </DialogHeader>
-
-                <div className="p-1">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">PO Value</div>
-                      <div className="text-base font-bold">{dq.poValueCurrency || 'AED'} {formatCurrency(dq.poValue)}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Freight %</div>
-                      <div className="text-base font-bold text-primary">{Number.isFinite(dq.percentage) ? dq.percentage : 0}%</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">{dq.savings < 0 ? 'Extra Cost' : 'Savings'}</div>
-                      <div className={`text-base font-bold ${dq.savings < 0 ? 'text-destructive' : 'text-success'}`}>
-                        {dq.savings !== 0 ? (
-                          <>
-                            {dq.poValueCurrency || 'AED'} {formatCurrency(Math.abs(dq.savings))}
-                            {(dq.poValueCurrency || 'AED') !== 'AED' && (
-                              <span className="text-xs text-muted-foreground font-normal ml-1.5">
-                                (AED {formatCurrency(convertCurrency(Math.abs(dq.savings), dq.poValueCurrency || 'AED', 'AED'))})
-                              </span>
-                            )}
-                          </>
-                        ) : '-'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Status</div>
-                      {dq.status === 'Awaiting Approval' && isAdmin ? (
-                        <div className="flex gap-1.5">
-                          <Button size="sm" variant="success" className="h-7 px-2 text-[11px]" onClick={() => {
-                            onStatusChange(dq.id, 'Assign to forwarder');
-                            setDetailQuotation(prev => prev ? { ...prev, status: 'Assign to forwarder' } : null);
-                          }}>Approve</Button>
-                          <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px]" onClick={() => {
-                            onStatusChange(dq.id, 'Rejected');
-                            setDetailQuotation(prev => prev ? { ...prev, status: 'Rejected' } : null);
-                          }}>Reject</Button>
-                        </div>
+          ) : (
+            displayedQuotations.map(q => {
+              const entityColor = ENTITY_COLORS[q.entity] || '#66736f';
+                  const statusStyle = getStatusStyle(q.status, muiTheme.palette.mode);
+              return (
+                <Card key={q.id} sx={{
+                  cursor: 'pointer', borderRadius: 1.5, overflow: 'hidden',
+                  transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-1px)' },
+                }}
+                  onClick={() => setDetailQuotation(q)}>
+                  <Box sx={{ height: 4, background: `linear-gradient(90deg, ${entityColor}, ${entityColor}88)` }} />
+                  <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Chip label={q.entity} size="small"
+                        sx={{ fontWeight: 700, fontSize: '0.6875rem', bgcolor: `${entityColor}15`, color: entityColor }} />
+                      {q.status === 'Awaiting Approval' && isAdmin ? (
+                        <Box sx={{ display: 'flex', gap: 0.5 }} onClick={e => e.stopPropagation()}>
+                          <Button size="small" variant="contained" color="success" sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem', px: 1 }}
+                            onClick={() => onStatusChange(q.id, 'Assign to forwarder')}>Approve</Button>
+                          <Button size="small" variant="contained" color="error" sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem', px: 1 }}
+                            onClick={() => onStatusChange(q.id, 'Rejected')}>Reject</Button>
+                        </Box>
                       ) : (
-                        <Select
-                          value={dq.status}
-                          onValueChange={(value) => {
-                            onStatusChange(dq.id, value);
-                            setDetailQuotation(prev => prev ? { ...prev, status: value } : null);
-                          }}
-                          disabled={!isAdmin}
-                        >
-                          <SelectTrigger className={cn("h-8 text-[12px] w-auto min-w-[140px]", getStatusStyle(dq.status).bg, getStatusStyle(dq.status).text, getStatusStyle(dq.status).border, "border")}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STATUS_LIST.map(s => (
-                              <SelectItem key={s} value={s}>{s}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Chip label={q.status} size="small"
+                          sx={{ fontWeight: 600, fontSize: '0.75rem', bgcolor: statusStyle.bg, color: statusStyle.color }} />
                       )}
-                    </div>
-                  </div>
-
-                  {dq.status === 'Rejected' && dq.remarks && (
-                    <Alert variant="destructive" className="mb-5">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Rejection Reason</AlertTitle>
-                      <AlertDescription>{dq.remarks}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5 p-3 bg-muted rounded-lg">
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Origin</div>
-                      <div className="text-sm font-medium">{dq.origin || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Destination</div>
-                      <div className="text-sm font-medium">{dq.destination || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Mode</div>
-                      <div className="text-sm font-medium">{getModeIcon(dq.mode)} {dq.mode || '-'}</div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Size</div>
-                      <div className="text-sm font-medium">{dq.size || '-'}</div>
-                    </div>
-                    {dq.transitTime && (
-                      <div>
-                        <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Transit</div>
-                        <div className="text-sm font-medium">{dq.transitTime}</div>
-                      </div>
-                    )}
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Incoterms</div>
-                      <div className="text-sm font-medium">{dq.incoterms || '-'}</div>
-                    </div>
-                    {dq.etd && (
-                      <div>
-                        <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">ETD</div>
-                        <div className="text-sm font-medium">{dq.etd}</div>
-                      </div>
-                    )}
-                    {dq.eta && (
-                      <div>
-                        <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">ETA</div>
-                        <div className="text-sm font-medium">{dq.eta}</div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mb-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-bold m-0">Forwarder Quotes</h3>
-                      {dq.savings !== 0 && (
-                        <Badge variant={dq.savings < 0 ? 'destructive' : 'success'} className="text-[11px]">
-                          {dq.savings < 0 ? 'Extra Cost' : 'Savings'}: {dq.poValueCurrency || 'AED'} {formatCurrency(Math.abs(dq.savings))}
-                          {(dq.poValueCurrency || 'AED') !== 'AED' && ` (AED ${formatCurrency(convertCurrency(Math.abs(dq.savings), dq.poValueCurrency || 'AED', 'AED'))})`}
-                        </Badge>
+                    </Box>
+                    <Typography variant="subtitle1" fontWeight={600}>{q.supplierName}</Typography>
+                    <Typography variant="body2" fontFamily="monospace" color="text.secondary">{q.supplierPO}</Typography>
+                    <Typography variant="h6" fontWeight={700}>
+                      {formatCurrency(q.poValue)} <Typography component="span" variant="caption" color="text.secondary">{q.poValueCurrency || 'AED'}</Typography>
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', my: 1 }}>
+                      <Typography variant="body2">{q.origin}</Typography>
+                      <ArrowForward fontSize="small" color="action" />
+                      <Typography variant="body2">{q.destination}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+                      <Chip label={`${getModeIcon(q.mode)} ${q.mode}`} size="small" variant="outlined" sx={{ fontSize: '0.75rem' }} />
+                      <Chip label={q.incoterms} size="small" variant="outlined" sx={{ fontSize: '0.75rem' }} />
+                      {q.transitTime && (
+                        <Chip icon={<AccessTime />} label={q.transitTime} size="small"
+                          sx={{ fontSize: '0.75rem', color: '#fff', bgcolor: '#6366f1' }} />
                       )}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {dq.quotes.filter(qt => qt.quotedAmount > 0).map(qt => (
-                        <div
-                          key={qt.forwarder}
-                          className={cn(
-                            "flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all",
-                            dq.awardedTo === qt.forwarder
-                              ? "border-success bg-success/10"
-                              : dq.awardedTo
-                                ? "border-border bg-muted opacity-60"
-                                : "border-border bg-card"
-                          )}
-                        >
-                          <span className="text-sm font-semibold">{qt.forwarder}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold">{qt.currency || 'AED'} {formatCurrency(qt.quotedAmount)}</span>
-                            {(!(!isAdmin && (dq.status === 'Awaiting Approval' || dq.status === 'Rejected'))) && (
-                              <Button
-                                variant={dq.awardedTo === qt.forwarder ? "success" : "outline"}
-                                size="sm"
-                                className="h-6 px-3 text-[11px] rounded-full"
-                                onClick={() => onAward(dq.id, qt.forwarder)}
-                              >
-                                {dq.awardedTo === qt.forwarder ? (
-                                  <><Star className="h-3.5 w-3.5 text-warning fill-warning" /> Awarded</>
-                                ) : (
-                                  <><Star className="h-3.5 w-3.5" /> Award</>
-                                )}
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {dq.quotes.filter(qt => qt.quotedAmount > 0).length === 0 && (
-                        <div className="text-center py-6 text-sm text-muted-foreground">No quotes yet</div>
-                      )}
-                    </div>
-                  </div>
-
-                  {dq.remarks && (
-                    <div className="p-3 rounded-lg bg-muted text-sm text-muted-foreground mb-5 flex items-start gap-2">
-                      <Mail className="h-4 w-4 mt-0.5 shrink-0" />
-                      <span>{dq.remarks}</span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end gap-2 pt-3 border-t border-border">
-                    {dq.status === 'Awaiting Approval' && isAdmin && (
-                      <>
-                        {!dq.awardedTo && (
-                          <span className="text-[11px] flex items-center gap-1.5 mr-auto self-center font-medium text-warning">
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            <span>Award a quote above before approving</span>
-                          </span>
+                    </Box>
+                    {q.savings !== 0 && (
+                      <Typography variant="body2" fontWeight={600} color={q.savings < 0 ? 'error' : 'success.main'}
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
+                        <AttachMoney fontSize="small" />
+                        {q.savings < 0 ? 'Extra Cost' : 'Savings'}: {q.poValueCurrency || 'AED'} {formatCurrency(Math.abs(q.savings))}
+                      </Typography>
+                    )}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="body2" fontWeight={700} color="text.secondary">
+                        Freight %: {Number.isFinite(q.percentage) ? q.percentage : 0}%
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {!isAdmin && q.status === 'Awaiting Approval' ? (
+                          <Button size="small" variant="outlined" disabled startIcon={<Lock />}>Under Review</Button>
+                        ) : (
+                          <Button size="small" variant="outlined" startIcon={<Edit />}
+                            onClick={(e) => { e.stopPropagation(); onEdit(q); }}>Edit</Button>
                         )}
-                        <Button
-                          variant="success"
-                          size="sm"
-                          disabled={!dq.awardedTo}
-                          className="gap-1.5"
-                          onClick={() => {
-                            onStatusChange(dq.id, 'Assign to forwarder');
-                            setDetailQuotation(null);
-                          }}
-                        >
-                          <Check className="h-3.5 w-3.5" /> Approve
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => {
-                            onStatusChange(dq.id, 'Rejected');
-                            setDetailQuotation(null);
-                          }}
-                        >
-                          <XCircle className="h-3.5 w-3.5" /> Reject
-                        </Button>
-                      </>
+                        {isAdmin && (
+                          <Button size="small" variant="outlined" color="error" startIcon={<Delete />}
+                            onClick={(e) => { e.stopPropagation(); onDelete(q.id); }}>Delete</Button>
+                        )}
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </Box>
+      )}
+
+      <Dialog open={!!currentQuotation} onClose={() => setDetailQuotation(null)} maxWidth="md" fullWidth
+        sx={{ '& .MuiDialog-paper': { borderRadius: 2, overflow: 'hidden' } }}>
+        {currentQuotation && (() => {
+          const dq = currentQuotation;
+          const entityColor = ENTITY_COLORS[dq.entity] || '#66736f';
+          const statusStyle = getStatusStyle(dq.status, muiTheme.palette.mode);
+          return (
+            <>
+              <Box sx={{ height: 4, background: `linear-gradient(90deg, ${entityColor}, ${entityColor}88)` }} />
+              <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
+                <Chip label={dq.entity} size="small"
+                  sx={{ fontWeight: 700, fontSize: '0.6875rem', bgcolor: `${entityColor}15`, color: entityColor }} />
+                <Typography variant="subtitle1" component="span" fontWeight={700}>{dq.supplierName}</Typography>
+                <Typography variant="body2" fontFamily="monospace" color="text.secondary">{dq.supplierPO}</Typography>
+              </DialogTitle>
+              <DialogContent>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr 1fr' }, gap: 1.5, mb: 2.5 }}>
+                  <Box sx={{ p: 1.5, borderRadius: 1, bgcolor: `${entityColor}08`, border: '1px solid', borderColor: `${entityColor}20` }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>PO Value</Typography>
+                    <Typography variant="body1" fontWeight={700} sx={{ color: entityColor }}>{dq.poValueCurrency || 'AED'} {formatCurrency(dq.poValue)}</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.5, borderRadius: 1, bgcolor: 'rgba(99,102,241,0.06)', border: '1px solid', borderColor: 'rgba(99,102,241,0.2)' }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>Freight %</Typography>
+                    <Typography variant="body1" fontWeight={700} color="#6366f1">{Number.isFinite(dq.percentage) ? dq.percentage : 0}%</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.5, borderRadius: 1, bgcolor: dq.savings < 0 ? 'rgba(220,38,38,0.06)' : 'rgba(5,150,105,0.06)', border: '1px solid', borderColor: dq.savings < 0 ? 'rgba(220,38,38,0.2)' : 'rgba(5,150,105,0.2)' }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>{dq.savings < 0 ? 'Extra Cost' : 'Savings'}</Typography>
+                    <Typography variant="body1" fontWeight={700} color={dq.savings < 0 ? '#dc2626' : '#059669'}>
+                      {dq.savings !== 0 ? `${dq.poValueCurrency || 'AED'} ${formatCurrency(Math.abs(dq.savings))}` : '-'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ p: 1.5, borderRadius: 1, bgcolor: statusStyle.bg, border: '1px solid', borderColor: statusStyle.border }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>Status</Typography>
+                    <Box sx={{ mt: 0.5 }}><Chip label={dq.status} size="small"
+                      sx={{ fontWeight: 600, bgcolor: statusStyle.bg, color: statusStyle.color }} /></Box>
+                  </Box>
+                </Box>
+
+                {dq.status === 'Rejected' && dq.remarks && (
+                  <Alert severity="error" sx={{ mb: 2.5 }}>
+                    <AlertTitle>Rejection Reason</AlertTitle>
+                    {dq.remarks}
+                  </Alert>
+                )}
+
+                <Box sx={{
+                  mb: 2,
+                  px: 0.5,
+                  display: 'flex',
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  gap: { xs: 0.75, sm: 1.5 },
+                  color: 'text.secondary',
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Created</Typography>
+                    <PersonStamp name={dq.createdBy} date={dq.createdAt} />
+                  </Box>
+                  <Box sx={{ width: 1, height: 14, bgcolor: 'divider', display: { xs: 'none', sm: 'block' } }} />
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Approved</Typography>
+                    <PersonStamp name={dq.approvedBy} date={dq.approvedAt} />
+                  </Box>
+                </Box>
+
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover', mb: 2.5, display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr 1fr' }, gap: 2, borderRadius: 1.5 }}>
+                  <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>Origin</Typography>
+                    <Typography variant="body2" fontWeight={500}>{dq.origin || '-'}</Typography></Box>
+                  <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>Destination</Typography>
+                    <Typography variant="body2" fontWeight={500}>{dq.destination || '-'}</Typography></Box>
+                  <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>Mode</Typography>
+                    <Typography variant="body2" fontWeight={500}>{getModeIcon(dq.mode)} {dq.mode || '-'}</Typography></Box>
+                  <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>Size</Typography>
+                    <Typography variant="body2" fontWeight={500}>{dq.size || '-'}</Typography></Box>
+                  {dq.transitTime && <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>Transit</Typography>
+                    <Typography variant="body2" fontWeight={500}>{dq.transitTime}</Typography></Box>}
+                  <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>Incoterms</Typography>
+                    <Typography variant="body2" fontWeight={500}>{dq.incoterms || '-'}</Typography></Box>
+                  {dq.etd && <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>ETD</Typography>
+                    <Typography variant="body2" fontWeight={500}>{dq.etd}</Typography></Box>}
+                  {dq.eta && <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>ETA</Typography>
+                    <Typography variant="body2" fontWeight={500}>{dq.eta}</Typography></Box>}
+                </Paper>
+
+                <Box sx={{ mb: 2.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 24, height: 24, borderRadius: 0.5, bgcolor: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                        <AttachMoney sx={{ fontSize: 14 }} />
+                      </Box>
+                      <Typography variant="subtitle2" fontWeight={700}>Forwarder Quotes</Typography>
+                    </Box>
+                    {dq.savings !== 0 && (
+                      <Chip label={`${dq.savings < 0 ? 'Extra Cost' : 'Savings'}: ${dq.poValueCurrency || 'AED'} ${formatCurrency(Math.abs(dq.savings))}`}
+                        size="small" color={dq.savings < 0 ? 'error' : 'success'} sx={{ fontWeight: 600 }} />
                     )}
-                    {(dq.status === 'Pending' || dq.status === 'Sent for quotation') && dq.quotes.some(q => q.quotedAmount > 0) && (
-                      <Button
-                        variant="warning"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => {
-                          onStatusChange(dq.id, 'Awaiting Approval');
-                          setDetailQuotation(null);
-                        }}
-                      >
-                        <Send className="h-3.5 w-3.5" /> Submit for Approval
-                      </Button>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {dq.quotes.filter(qt => qt.quotedAmount > 0).map(qt => (
+                      <Paper key={qt.forwarder} variant="outlined" sx={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, px: 2, py: 1.5,
+                        borderColor: dq.awardedTo === qt.forwarder ? '#059669' : 'divider',
+                        bgcolor: dq.awardedTo === qt.forwarder ? 'rgba(5,150,105,0.04)' : 'background.paper',
+                        borderWidth: dq.awardedTo === qt.forwarder ? 2 : 1,
+                        opacity: dq.awardedTo && dq.awardedTo !== qt.forwarder ? 0.6 : 1,
+                      }}>
+                        <Typography variant="body2" fontWeight={600}>{qt.forwarder}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Typography variant="body2" fontWeight={700}>{qt.currency || 'AED'} {formatCurrency(qt.quotedAmount)}</Typography>
+                          {!(!isAdmin && (dq.status === 'Awaiting Approval' || dq.status === 'Rejected')) && (
+                            <Button
+                              size="small"
+                              variant={dq.awardedTo === qt.forwarder ? 'contained' : 'outlined'}
+                              color={dq.awardedTo === qt.forwarder ? 'success' : 'primary'}
+                              sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem' }}
+                              onClick={() => onAward(dq.id, qt.forwarder)}
+                              startIcon={dq.awardedTo === qt.forwarder ? <Star /> : <StarBorder />}
+                            >
+                              {dq.awardedTo === qt.forwarder ? 'Awarded' : 'Award'}
+                            </Button>
+                          )}
+                        </Box>
+                      </Paper>
+                    ))}
+                    {dq.quotes.filter(qt => qt.quotedAmount > 0).length === 0 && (
+                      <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>No quotes yet</Typography>
                     )}
-                    <Button variant="outline" onClick={() => setDetailQuotation(null)}>Close</Button>
-                    {!isAdmin && dq.status === 'Awaiting Approval' ? (
-                      <Button variant="outline" size="sm" disabled className="gap-1.5">
-                        <Lock className="h-3.5 w-3.5" /> Under Review
+                  </Box>
+                </Box>
+
+                {dq.remarks && (
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover', mb: 2.5, display: 'flex', gap: 1, borderRadius: 1.5 }}>
+                    <Send fontSize="small" color="action" sx={{ mt: 0.25 }} />
+                    <Typography variant="body2" color="text.secondary">{dq.remarks}</Typography>
+                  </Paper>
+                )}
+
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  flexWrap: 'wrap',
+                  gap: 1,
+                  pt: 2,
+                  borderTop: '1px solid',
+                  borderColor: 'divider',
+                  '& .MuiButton-root': {
+                    height: 36,
+                    alignSelf: 'center',
+                  },
+                }}>
+                  {dq.status === 'Awaiting Approval' && isAdmin && (
+                    <>
+                      {!dq.awardedTo && (
+                        <Typography variant="caption" color="warning.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 'auto' }}>
+                          <Warning fontSize="small" /> Award a quote before approving
+                        </Typography>
+                      )}
+                      <Button variant="contained" color="success" size="small" disabled={!dq.awardedTo}
+                        startIcon={<Check />} onClick={() => { onStatusChange(dq.id, 'Assign to forwarder'); setDetailQuotation(null); }}>
+                        Approve
                       </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => { setDetailQuotation(null); onEdit(dq); }}>
-                        <Edit className="h-3.5 w-3.5" /> Edit
+                      <Button variant="contained" color="error" size="small"
+                        startIcon={<XCircle />} onClick={() => { onStatusChange(dq.id, 'Rejected'); setDetailQuotation(null); }}>
+                        Reject
                       </Button>
-                    )}
-                    {isAdmin && (
-                      <Button variant="destructive" size="sm" className="gap-1.5" onClick={() => { setDetailQuotation(null); onDelete(dq.id); }}>
-                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
+                    </>
+                  )}
+                  {(dq.status === 'Pending' || dq.status === 'Sent for quotation') && dq.quotes.some(q => q.quotedAmount > 0) && (
+                    <Button variant="contained" color="warning" size="small"
+                      startIcon={<Send />} onClick={() => { onStatusChange(dq.id, 'Awaiting Approval'); setDetailQuotation(null); }}>
+                      Submit for Approval
+                    </Button>
+                  )}
+                  <Button variant="outlined" size="small" sx={{ minWidth: 84 }} onClick={() => setDetailQuotation(null)}>Close</Button>
+                  {!isAdmin && dq.status === 'Awaiting Approval' ? (
+                    <Button variant="outlined" size="small" disabled startIcon={<Lock />}>Under Review</Button>
+                  ) : (
+                    <Button variant="outlined" size="small" startIcon={<Edit />}
+                      onClick={() => { setDetailQuotation(null); onEdit(dq); }}>Edit</Button>
+                  )}
+                  {isAdmin && (
+                    <Button variant="outlined" color="error" size="small" startIcon={<Delete />}
+                      onClick={() => { setDetailQuotation(null); onDelete(dq.id); }}>Delete</Button>
+                  )}
+                </Box>
+              </DialogContent>
+            </>
+          );
+        })()}
       </Dialog>
     </>
   );
-});
-
-export default QuotationTable;
+}

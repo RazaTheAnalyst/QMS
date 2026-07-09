@@ -37,6 +37,10 @@ interface ForwarderRow {
 function rowToQuotation(row: QuotationRow): Quotation {
   let parsedQuotes: { forwarder: string; quotedAmount: number; currency?: string }[] = [];
   let poValueCurrency = 'AED';
+  let createdBy = '';
+  let createdAt = '';
+  let approvedBy = '';
+  let approvedAt = '';
 
   if (row.quotes != null) {
     if (typeof row.quotes === 'string') {
@@ -44,6 +48,10 @@ function rowToQuotation(row: QuotationRow): Quotation {
         const parsed = JSON.parse(row.quotes);
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           poValueCurrency = String(parsed.poValueCurrency ?? 'AED');
+          createdBy = String(parsed.createdBy ?? '');
+          createdAt = String(parsed.createdAt ?? '');
+          approvedBy = String(parsed.approvedBy ?? '');
+          approvedAt = String(parsed.approvedAt ?? '');
           const items = parsed.items;
           if (Array.isArray(items)) {
             parsedQuotes = items.map((q: Record<string, unknown>) => ({
@@ -74,6 +82,10 @@ function rowToQuotation(row: QuotationRow): Quotation {
     } else if (typeof row.quotes === 'object' && row.quotes !== null) {
       const obj = row.quotes as Record<string, unknown>;
       poValueCurrency = String(obj.poValueCurrency ?? 'AED');
+      createdBy = String(obj.createdBy ?? '');
+      createdAt = String(obj.createdAt ?? '');
+      approvedBy = String(obj.approvedBy ?? '');
+      approvedAt = String(obj.approvedAt ?? '');
       const items = obj.items;
       if (Array.isArray(items)) {
         parsedQuotes = items.map((q) => {
@@ -109,6 +121,10 @@ function rowToQuotation(row: QuotationRow): Quotation {
     eta: row.eta ?? '',
     status: row.status ?? 'Pending',
     savings: Number(row.savings) || 0,
+    createdBy,
+    createdAt,
+    approvedBy,
+    approvedAt,
   };
 }
 
@@ -137,6 +153,10 @@ function quotationInputToRow(data: QuotationInput, percentage = 0) {
     quotes: JSON.stringify({
       poValueCurrency: data.poValueCurrency || 'AED',
       items: data.quotes,
+      createdBy: data.createdBy ?? '',
+      createdAt: data.createdAt ?? '',
+      approvedBy: data.approvedBy ?? '',
+      approvedAt: data.approvedAt ?? '',
     }),
     awarded_to: data.awardedTo,
     remarks: data.remarks,
@@ -258,6 +278,10 @@ export async function updateQuotationAPI(id: number, input: Partial<QuotationInp
   row.quotes = JSON.stringify({
     poValueCurrency: mergedPoValueCurrency || 'AED',
     items: mergedQuotes,
+    createdBy: input.createdBy !== undefined ? input.createdBy : parsedExisting.createdBy ?? '',
+    createdAt: input.createdAt !== undefined ? input.createdAt : parsedExisting.createdAt ?? '',
+    approvedBy: input.approvedBy !== undefined ? input.approvedBy : parsedExisting.approvedBy ?? '',
+    approvedAt: input.approvedAt !== undefined ? input.approvedAt : parsedExisting.approvedAt ?? '',
   });
 
   if (input.awardedTo !== undefined) row.awarded_to = input.awardedTo;

@@ -1,23 +1,22 @@
-import { useState, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { X, Plus, Star } from 'lucide-react';
 import { ENTITIES, STATUS_LIST, CURRENCY_LIST, convertCurrency } from '../types';
 import { ADMIN_EMAIL } from '../types';
 import type { Quotation, Forwarder, QuotationInput } from '../types';
 import { useAuth } from '../auth';
 import { COUNTRIES, INCOTERMS_LIST, MODES_LIST } from '../locations';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Card, CardContent } from './ui/card';
-import { cn, getModeIcon, formatCurrency } from '@/lib/utils';
+import { getModeIcon, formatCurrency } from '@/lib/utils';
+import {
+  Dialog, DialogTitle, Box, Button, TextField,
+  FormControl, Select, MenuItem,
+  Typography, IconButton, Chip, Popover, Stack, Paper,
+} from '@mui/material';
+import {
+  Close, Add, Star, LocationOn, ExpandMore, Info, Route,
+  AttachMoney, EmojiEvents, Check,
+} from '@mui/icons-material';
 
 const schema = z.object({
   entity: z.string().min(1, 'Entity is required'),
@@ -46,6 +45,165 @@ const schema = z.object({
 
 type QuotationFormData = z.infer<typeof schema>;
 
+function LocationPopover({
+  value, setValue, label,
+}: {
+  value: string;
+  setValue: (v: string) => void;
+  label: string;
+}) {
+  const [search, setSearch] = useState(value);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const open = Boolean(anchorEl);
+  const filterRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && filterRef.current) {
+      setTimeout(() => filterRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    if (!search) return COUNTRIES.slice(0, 15);
+    const term = search.toLowerCase();
+    return COUNTRIES.filter(c =>
+      c.name.toLowerCase().includes(term) ||
+      c.cities.some(city => city.toLowerCase().includes(term))
+    ).slice(0, 30);
+  }, [search]);
+
+  return (
+    <FormField label={label}>
+      <TextField
+        value={value || search}
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        placeholder="Search country or city..."
+        size="small"
+        fullWidth
+        sx={fieldSx}
+        InputProps={{
+          readOnly: true,
+          startAdornment: <LocationOn fontSize="small" color="action" sx={{ mr: 0.5 }} />,
+          endAdornment: <ExpandMore fontSize="small" color="action" />,
+        }}
+      />
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        slotProps={{ paper: { sx: { width: anchorEl?.offsetWidth, mt: 0.5 } } }}
+      >
+        <Box sx={{ p: 1 }}>
+          <TextField
+            inputRef={filterRef}
+            placeholder="Filter locations..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            size="small"
+            fullWidth
+          />
+        </Box>
+        <Box sx={{ maxHeight: 280, overflow: 'auto' }}>
+          {filtered.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>No matching locations</Typography>
+          ) : (
+            filtered.map(country => (
+              <Box key={country.name}>
+                <Typography variant="caption" sx={{
+                  px: 1.5, py: 0.75, fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: '0.08em', color: 'primary.main', bgcolor: 'action.hover',
+                  position: 'sticky', top: 0, display: 'block',
+                }}>
+                  {country.name}
+                </Typography>
+                <Box sx={{ p: 0.75, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {country.cities.map(city => {
+                    const val = `${city}, ${country.name}`;
+                    const isSelected = value === val;
+                    return (
+                      <Chip
+                        key={city}
+                        label={city}
+                        size="small"
+                        variant={isSelected ? 'filled' : 'outlined'}
+                        color={isSelected ? 'primary' : 'default'}
+                        onClick={() => { setValue(val); setSearch(val); setAnchorEl(null); }}
+                        sx={{ cursor: 'pointer' }}
+                      />
+                    );
+                  })}
+                </Box>
+              </Box>
+            ))
+          )}
+        </Box>
+      </Popover>
+    </FormField>
+  );
+}
+
+const fieldSx = {
+  '& .MuiInputBase-root': {
+    minHeight: 40,
+    bgcolor: 'background.paper',
+  },
+  '& .MuiInputBase-input': {
+    py: 1.05,
+  },
+};
+
+const selectSx = {
+  ...fieldSx,
+  '& .MuiSelect-select': {
+    minHeight: '1.4375em',
+    display: 'flex',
+    alignItems: 'center',
+  },
+};
+
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Typography
+        variant="caption"
+        component="label"
+        sx={{
+          display: 'block',
+          mb: 0.6,
+          color: 'text.secondary',
+          fontWeight: 700,
+          lineHeight: 1,
+          letterSpacing: 0,
+          textTransform: 'none',
+        }}
+      >
+        {label}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
+function SectionIcon({ icon: Icon, color }: { icon: React.ElementType; color: string }) {
+  return (
+    <Box sx={{
+      width: 30,
+      height: 30,
+      borderRadius: 1,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      bgcolor: color,
+      color: '#fff',
+      flexShrink: 0,
+      boxShadow: '0 8px 20px -14px currentColor',
+    }}>
+      <Icon sx={{ fontSize: 17 }} />
+    </Box>
+  );
+}
+
 interface QuotationFormProps {
   quotation: Quotation | null;
   forwarders: Forwarder[];
@@ -57,7 +215,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
   const { user } = useAuth();
   const isAdmin = user?.email === ADMIN_EMAIL;
 
-  const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<QuotationFormData>({
+  const { control, handleSubmit, setValue, formState: { errors, isDirty } } = useForm<QuotationFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       entity: quotation?.entity ?? 'UAE',
@@ -81,21 +239,21 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
     },
   });
 
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
   const { fields, append, remove } = useFieldArray({ control, name: 'quotes' });
-
-  const poValue = watch('poValue');
-  const poValueCurrency = watch('poValueCurrency');
-  const originValue = watch('origin');
-  const destinationValue = watch('destination');
-  const quotes = watch('quotes') ?? [];
-  const awardedTo = watch('awardedTo');
-
-  const [originSearch, setOriginSearch] = useState(quotation?.origin ?? '');
-  const [destinationSearch, setDestinationSearch] = useState(quotation?.destination ?? '');
-  const [showOriginDropdown, setShowOriginDropdown] = useState(false);
-  const [showDestinationDropdown, setShowDestinationDropdown] = useState(false);
-  const originWrapperRef = useRef<HTMLDivElement>(null);
-  const destWrapperRef = useRef<HTMLDivElement>(null);
+  const poValueCurrency = useWatch({ control, name: 'poValueCurrency' }) ?? 'AED';
+  const poValue = useWatch({ control, name: 'poValue' }) ?? 0;
+  const awardedTo = useWatch({ control, name: 'awardedTo' }) ?? '';
+  const quotes = useWatch({ control, name: 'quotes' });
 
   const validQuotesConverted = useMemo(() => {
     return quotes.filter(q => q && q.quotedAmount > 0).map(q => ({
@@ -106,7 +264,11 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
 
   const lowestAmountInPoCurrency = validQuotesConverted.length > 0
     ? Math.min(...validQuotesConverted.map(q => q.amountInPoCurrency)) : 0;
-  const percentage = poValue > 0 ? ((lowestAmountInPoCurrency / poValue) * 100).toFixed(2) : '0.00';
+  const percentageValue = lowestAmountInPoCurrency > 0 && (() => {
+    const pv = typeof poValue === 'number' ? poValue : 0;
+    return pv > 0 ? ((lowestAmountInPoCurrency / pv) * 100).toFixed(2) : '0.00';
+  })() || '0.00';
+
   const autoSavings = validQuotesConverted.length >= 2
     ? (() => {
         const awardedAmt = awardedTo
@@ -114,37 +276,6 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
           : lowestAmountInPoCurrency;
         return Math.round((lowestAmountInPoCurrency - awardedAmt) * 100) / 100;
       })() : null;
-
-  const filteredOrigins = useMemo(() => {
-    if (!originSearch) return COUNTRIES.slice(0, 15);
-    const term = originSearch.toLowerCase();
-    return COUNTRIES.filter(c => c.name.toLowerCase().includes(term) || c.cities.some(city => city.toLowerCase().includes(term))).slice(0, 30);
-  }, [originSearch]);
-
-  const filteredDestinations = useMemo(() => {
-    if (!destinationSearch) return COUNTRIES.slice(0, 15);
-    const term = destinationSearch.toLowerCase();
-    return COUNTRIES.filter(c => c.name.toLowerCase().includes(term) || c.cities.some(city => city.toLowerCase().includes(term))).slice(0, 30);
-  }, [destinationSearch]);
-
-  const selectedOriginCountry = useMemo(() =>
-    COUNTRIES.find(c => c.cities.some(city => originValue === `${city}, ${c.name}`)) ?? null, [originValue]);
-  const selectedDestCountry = useMemo(() =>
-    COUNTRIES.find(c => c.cities.some(city => destinationValue === `${city}, ${c.name}`)) ?? null, [destinationValue]);
-
-  const handleOriginCitySelect = (city: string, country: string) => {
-    const val = `${city}, ${country}`;
-    setValue('origin', val, { shouldValidate: true });
-    setOriginSearch(val);
-    setShowOriginDropdown(false);
-  };
-
-  const handleDestCitySelect = (city: string, country: string) => {
-    const val = `${city}, ${country}`;
-    setValue('destination', val, { shouldValidate: true });
-    setDestinationSearch(val);
-    setShowDestinationDropdown(false);
-  };
 
   const handleFormSubmit = (data: QuotationFormData) => {
     const validQ = data.quotes.filter(q => q && q.quotedAmount > 0);
@@ -161,7 +292,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
     if (validQConverted.length >= 2) {
       savingsVal = Math.round((lowestAmt - awardedAmt) * 100) / 100;
     }
-    onSave({ ...data, percentage: Math.round(pctVal * 100) / 100, savings: savingsVal } as QuotationFormData & { percentage: number; savings: number });
+    onSave({ ...data, percentage: Math.round(pctVal * 100) / 100, savings: savingsVal });
   };
 
   const handleAddForwarder = () => {
@@ -169,442 +300,376 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
     append({ forwarder: lastForwarder?.name ?? '', quotedAmount: 0, currency: 'AED' });
   };
 
-  const renderLocationDropdown = (
-    type: 'origin' | 'destination',
-    search: string,
-    setSearch: (v: string) => void,
-    show: boolean,
-    setShow: (v: boolean) => void,
-    filtered: typeof COUNTRIES,
-    selectedCountry: typeof COUNTRIES[number] | null,
-    currentValue: string,
-    onSelect: (city: string, country: string) => void,
-    wrapperRef: React.RefObject<HTMLDivElement | null>,
-  ) => {
-    const pos = wrapperRef.current?.getBoundingClientRect();
-    return (
-    <div className="relative" data-location-dropdown ref={wrapperRef}>
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm">📍</span>
-        <Input
-          placeholder="Search country or city..."
-          value={search}
-          onChange={e => { setSearch(e.target.value); setValue(type, e.target.value, { shouldValidate: true }); setShow(true); }}
-          onFocus={() => setShow(true)}
-          onBlur={() => setTimeout(() => setShow(false), 250)}
-          className="pl-9"
-        />
-      </div>
-      {show && createPortal(
-        <div
-          className="max-h-[280px] overflow-y-auto bg-popover border border-border rounded-xl shadow-xl z-[9999]"
-          style={{ position: 'fixed', top: (pos?.bottom ?? 0) + 4, left: pos?.left ?? 0, width: pos?.width ?? 300 }}
-        >
-          {filtered.length === 0 ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">🔍 No matching locations</div>
-          ) : (
-            filtered.map(country => (
-              <div key={country.name} className="border-b border-border last:border-b-0">
-                <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-primary bg-muted/50 sticky top-0 flex items-center gap-1.5">
-                  🌍 {country.name}
-                </div>
-                <div className="p-2 flex flex-wrap gap-1.5">
-                  {country.cities.map(city => (
-                    <button
-                      key={city}
-                      type="button"
-                      className={cn(
-                        "px-2.5 py-1.5 border border-border rounded-lg bg-background text-xs cursor-pointer transition-all hover:bg-primary/10 hover:border-primary hover:text-primary",
-                        selectedCountry?.name === country.name && currentValue === `${city}, ${country.name}` && "bg-primary text-primary-foreground border-primary shadow-sm"
-                      )}
-                      onMouseDown={e => e.preventDefault()}
-                      onClick={() => onSelect(city, country.name)}
-                    >
-                      🏙️ {city}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>,
-        document.body
-      )}
-    </div>
-    );
-  };
+  const sectionCard = (title: string, icon: React.ElementType, color: string, children: React.ReactNode) => (
+    <Paper variant="outlined" sx={{
+      borderRadius: 2,
+      overflow: 'visible',
+      borderColor: 'divider',
+      boxShadow: '0 12px 30px -28px rgba(23,32,31,0.5)',
+    }}>
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        px: { xs: 1.75, sm: 2.25 },
+        py: { xs: 1.15, sm: 1.3 },
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'rgba(15,118,110,0.035)',
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <SectionIcon icon={icon} color={color} />
+          <Typography variant="subtitle1" fontWeight={800}>{title}</Typography>
+        </Box>
+      </Box>
+      <Box sx={{ p: { xs: 1.75, sm: 2.1 } }}>
+        {children}
+      </Box>
+    </Paper>
+  );
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent
-        className="max-w-[860px] max-h-[92vh] overflow-y-auto p-0 rounded-2xl"
-        onPointerDownOutside={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest('[data-location-dropdown]')) {
-            e.preventDefault();
-          }
-        }}
-        onInteractOutside={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest('[data-location-dropdown]')) {
-            e.preventDefault();
-          }
-        }}
-      >
-        {/* Header */}
-        <DialogHeader className="p-6 pb-5 bg-gradient-to-br from-primary/10 via-cyan-500/5 to-purple-500/10 border-b border-border">
-          <DialogTitle className="flex items-center gap-3 text-lg">
-            <span className="text-2xl">{quotation ? '✏️' : '📦'}</span>
-            <div>
-              <span className="bg-gradient-to-r from-primary via-cyan-500 to-purple-500 bg-clip-text text-transparent font-bold">
-                {quotation ? 'Edit Quotation' : 'New Quotation Request'}
-              </span>
-              <p className="text-xs text-muted-foreground font-normal mt-0.5">
-                {quotation ? 'Update the quotation details below' : 'Fill in the details to request a new quotation'}
-              </p>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+    <Dialog open onClose={onClose} maxWidth="md" fullWidth sx={{
+      '& .MuiDialog-paper': {
+        maxHeight: { xs: '100dvh', sm: 'calc(100dvh - 1.25rem)' },
+        maxWidth: 980,
+        bgcolor: 'background.default',
+        overflow: 'hidden',
+      },
+    }}>
+      <DialogTitle sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.75,
+        px: { xs: 2, sm: 3 },
+        py: { xs: 1.5, sm: 1.9 },
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+      }}>
+        <Box sx={{ width: 42, height: 42, borderRadius: 1.5,
+          background: 'linear-gradient(135deg, #0f766e, #31748f)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+          boxShadow: '0 12px 24px -16px rgba(15,118,110,0.8)',
+        }}>
+          {quotation ? <EmojiEvents sx={{ fontSize: 20 }} /> : <Add sx={{ fontSize: 20 }} />}
+        </Box>
+        <Box>
+          <Typography variant="h6" fontWeight={700}>
+            {quotation ? 'Edit Quotation' : 'New Quotation Request'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {quotation ? 'Update the quotation details below' : 'Fill in the details to request a new quotation'}
+          </Typography>
+        </Box>
+      </DialogTitle>
 
-        {/* Summary Bar */}
-        {(validQuotesConverted.length > 0 || autoSavings !== null) && (
-          <div className="mx-6 mt-5 grid grid-cols-3 gap-3">
-            {lowestAmountInPoCurrency > 0 && (
-              <div className="text-center p-3 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
-                <div className="text-[10px] font-bold tracking-wider text-primary/70 uppercase mb-1">🏆 Lowest Quote</div>
-                <div className="text-lg font-extrabold text-primary">{poValueCurrency} {formatCurrency(lowestAmountInPoCurrency)}</div>
-              </div>
-            )}
-            {autoSavings !== null && (
-              <div className={`text-center p-3 rounded-xl bg-gradient-to-br ${autoSavings >= 0 ? 'from-success/10 to-success/5 border border-success/20' : 'from-destructive/10 to-destructive/5 border border-destructive/20'}`}>
-                <div className={`text-[10px] font-bold tracking-wider uppercase mb-1 ${autoSavings >= 0 ? 'text-success/70' : 'text-destructive/70'}`}>{autoSavings >= 0 ? '💰 Total Savings' : '🔥 Extra Cost'}</div>
-                <div className={`text-lg font-extrabold ${autoSavings >= 0 ? 'text-success' : 'text-destructive'}`}>
-                  {poValueCurrency} {formatCurrency(Math.abs(autoSavings))}
-                  {poValueCurrency !== 'AED' && (
-                    <span className="text-[10px] text-muted-foreground font-normal block mt-0.5">
-                      (AED {formatCurrency(convertCurrency(Math.abs(autoSavings), poValueCurrency || 'AED', 'AED'))})
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            {lowestAmountInPoCurrency > 0 && (
-              <div className="text-center p-3 rounded-xl bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 border border-cyan-500/20">
-                <div className="text-[10px] font-bold tracking-wider text-cyan-600/70 uppercase mb-1">📊 Freight %</div>
-                <div className="text-lg font-extrabold text-cyan-600">{percentage}%</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit(handleFormSubmit)} noValidate className="flex flex-col max-h-[calc(100vh-120px)]">
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
-
-          {/* ── Section: General Details ─────────────────── */}
-          <Card className="border-border/50 overflow-hidden">
-            <CardContent className="p-0">
-              <div className="px-5 py-3.5 bg-gradient-to-r from-primary/8 to-transparent border-b border-border/50 flex items-center gap-2">
-                <span className="text-lg">📋</span>
-                <h3 className="text-sm font-bold text-foreground">General Details</h3>
-                <span className="text-[10px] text-muted-foreground ml-1">— Supplier & PO information</span>
-              </div>
-              <div className="p-5">
-                <div className="grid grid-cols-3 gap-4 max-[1200px]:grid-cols-2 max-[900px]:grid-cols-1">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="entity" className="text-xs font-semibold flex items-center gap-1.5">
-                      🏢 Entity
-                    </Label>
-                    <Select value={watch('entity')} onValueChange={(v) => setValue('entity', v)}>
-                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ENTITIES.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5 col-span-2 max-[900px]:col-span-1">
-                    <Label htmlFor="supplierName" className="text-xs font-semibold flex items-center gap-1.5">
-                      🏭 Supplier Name
-                    </Label>
-                    <Input id="supplierName" placeholder="e.g. Acme Corp, Global Trading LLC" className="h-10" {...register('supplierName')} />
-                    {errors.supplierName && <span className="text-xs text-destructive flex items-center gap-1">⚠️ {errors.supplierName.message}</span>}
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="supplierPO" className="text-xs font-semibold flex items-center gap-1.5">
-                      📄 PO Number
-                    </Label>
-                    <Input id="supplierPO" placeholder="e.g. PO-987654" className="h-10" {...register('supplierPO')} />
-                    {errors.supplierPO && <span className="text-xs text-destructive flex items-center gap-1">⚠️ {errors.supplierPO.message}</span>}
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold flex items-center gap-1.5">
-                      💵 PO Value
-                    </Label>
-                    <div className="flex gap-2">
-                      <Input type="number" step="0.01" placeholder="0.00" className="flex-1 h-10" {...register('poValue')} />
-                      <Select value={watch('poValueCurrency')} onValueChange={(v) => setValue('poValueCurrency', v)}>
-                        <SelectTrigger className="w-[95px] h-10"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {CURRENCY_LIST.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {errors.poValue && <span className="text-xs text-destructive flex items-center gap-1">⚠️ {errors.poValue.message}</span>}
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold flex items-center gap-1.5">
-                      {getModeIcon(watch('mode') || '')} Mode of Transport
-                    </Label>
-                    <Select value={watch('mode')} onValueChange={(v) => setValue('mode', v)}>
-                      <SelectTrigger className="h-10"><SelectValue placeholder="Select Mode" /></SelectTrigger>
-                      <SelectContent>
-                        {MODES_LIST.map(m => <SelectItem key={m.value} value={m.value}>{getModeIcon(m.value)} {m.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    {errors.mode && <span className="text-xs text-destructive flex items-center gap-1">⚠️ {errors.mode.message}</span>}
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold flex items-center gap-1.5">
-                      📋 Incoterms
-                    </Label>
-                    <Select value={watch('incoterms')} onValueChange={(v) => setValue('incoterms', v)}>
-                      <SelectTrigger className="h-10"><SelectValue placeholder="Select Incoterms" /></SelectTrigger>
-                      <SelectContent>
-                        {INCOTERMS_LIST.map(i => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    {errors.incoterms && <span className="text-xs text-destructive flex items-center gap-1">⚠️ {errors.incoterms.message}</span>}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ── Section: Route & Cargo ───────────────────── */}
-          <Card className="border-border/50 overflow-hidden">
-            <CardContent className="p-0">
-              <div className="px-5 py-3.5 bg-gradient-to-r from-cyan-500/8 to-transparent border-b border-border/50 flex items-center gap-2">
-                <span className="text-lg">🌍</span>
-                <h3 className="text-sm font-bold text-foreground">Route & Cargo</h3>
-                <span className="text-[10px] text-muted-foreground ml-1">— Shipping details</span>
-              </div>
-              <div className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold flex items-center gap-1.5">
-                      🛫 Origin Port / City
-                    </Label>
-                    {renderLocationDropdown('origin', originSearch, setOriginSearch, showOriginDropdown, setShowOriginDropdown, filteredOrigins, selectedOriginCountry, originValue, handleOriginCitySelect, originWrapperRef)}
-                    {errors.origin && <span className="text-xs text-destructive flex items-center gap-1">⚠️ {errors.origin.message}</span>}
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold flex items-center gap-1.5">
-                      🛬 Destination Port / City
-                    </Label>
-                    {renderLocationDropdown('destination', destinationSearch, setDestinationSearch, showDestinationDropdown, setShowDestinationDropdown, filteredDestinations, selectedDestCountry, destinationValue, handleDestCitySelect, destWrapperRef)}
-                    {errors.destination && <span className="text-xs text-destructive flex items-center gap-1">⚠️ {errors.destination.message}</span>}
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-4 max-[1200px]:grid-cols-2 max-[900px]:grid-cols-1">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="size" className="text-xs font-semibold flex items-center gap-1.5">
-                      📦 Cargo Size / Type
-                    </Label>
-                    <Input id="size" placeholder="e.g. 1x40 HQ, LCL" className="h-10" {...register('size')} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="transitTime" className="text-xs font-semibold flex items-center gap-1.5">
-                      ⏱️ Transit Time
-                    </Label>
-                    <Input id="transitTime" placeholder="e.g. 25 Days" className="h-10" {...register('transitTime')} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="etd" className="text-xs font-semibold flex items-center gap-1.5">
-                      🚢 ETD (Departure)
-                    </Label>
-                    <Input id="etd" type="date" className="h-10" {...register('etd')} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="eta" className="text-xs font-semibold flex items-center gap-1.5">
-                      🏁 ETA (Arrival)
-                    </Label>
-                    <Input id="eta" type="date" className="h-10" {...register('eta')} />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ── Section: Forwarder Quotes ────────────────── */}
-          <Card className="border-border/50 overflow-hidden">
-            <CardContent className="p-0">
-              <div className="px-5 py-3.5 bg-gradient-to-r from-success/8 to-transparent border-b border-border/50 flex items-center gap-2">
-                <span className="text-lg">💰</span>
-                <h3 className="text-sm font-bold text-foreground">Forwarder Quotes</h3>
-                <span className="text-[10px] text-muted-foreground ml-1">— Compare prices</span>
-                <Badge variant="secondary" className="ml-auto text-[10px] gap-1">
-                  ✅ {validQuotesConverted.length} of {fields.length}
-                </Badge>
-              </div>
-              <div className="p-5">
-                <div className="flex flex-col gap-3">
-                  {fields.map((field, index) => {
-                    const isAwarded = awardedTo === field.forwarder;
-                    const quoteAmount = watch(`quotes.${index}.quotedAmount`);
-                    const quoteCurrency = watch(`quotes.${index}.currency`);
-                    const isLowest = quoteAmount > 0 && validQuotesConverted.length > 1 &&
-                      convertCurrency(quoteAmount, quoteCurrency || 'AED', poValueCurrency) === lowestAmountInPoCurrency;
-
-                    return (
-                      <div
-                        key={field.id}
-                        className={cn(
-                          "p-4 rounded-xl border-2 transition-all",
-                          isAwarded
-                            ? "border-success bg-gradient-to-r from-success/10 to-success/5 shadow-sm"
-                            : isLowest
-                              ? "border-primary/40 bg-primary/5"
-                              : "border-border/60 bg-muted/30 hover:border-border"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className={cn(
-                            "text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors",
-                            isAwarded ? "bg-success text-white" : isLowest ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                          )}>
-                            {isAwarded ? '🏆' : isLowest ? '🥇' : index + 1}
-                          </span>
-                          <Select value={watch(`quotes.${index}.forwarder`)} onValueChange={(v) => setValue(`quotes.${index}.forwarder`, v)}>
-                            <SelectTrigger className="flex-1 h-10 font-medium"><SelectValue placeholder="🎯 Select Forwarder" /></SelectTrigger>
-                            <SelectContent>
-                              {forwarders.map(f => <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>)}
-                            </SelectContent>
+      <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} noValidate sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: 'inherit' }}>
+        <Box sx={{ overflowY: 'auto', p: { xs: 1.5, sm: 2 }, pb: { xs: 2.5, sm: 2 }, display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 1.75 } }}>
+          {sectionCard('General Details', Info, 'primary.main',
+            <Box>
+              <Stack spacing={1.75}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: { xs: 1.5, sm: 1.75 } }}>
+                  <FormField label="Entity">
+                    <FormControl size="small" fullWidth error={!!errors.entity} sx={selectSx}>
+                      <Controller name="entity" control={control} render={({ field }) => (
+                        <Select {...field}>
+                          {ENTITIES.map(e => <MenuItem key={e} value={e}>{e}</MenuItem>)}
+                        </Select>
+                      )} />
+                    </FormControl>
+                  </FormField>
+                  <Controller name="supplierName" control={control} render={({ field }) => (
+                    <FormField label="Supplier Name">
+                      <TextField {...field} placeholder="e.g. Acme Corp, Global Trading LLC"
+                        size="small" fullWidth error={!!errors.supplierName} helperText={errors.supplierName?.message as string} sx={fieldSx} />
+                    </FormField>
+                  )} />
+                  <Controller name="supplierPO" control={control} render={({ field }) => (
+                    <FormField label="PO Number">
+                      <TextField {...field} placeholder="e.g. PO-987654"
+                        size="small" fullWidth error={!!errors.supplierPO} helperText={errors.supplierPO?.message as string} sx={fieldSx} />
+                    </FormField>
+                  )} />
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: { xs: 1.5, sm: 1.75 } }}>
+                  <FormField label="PO Value">
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr) 92px', sm: 'minmax(0, 1fr) 100px' }, gap: 1 }}>
+                      <Controller name="poValue" control={control} render={({ field }) => (
+                        <TextField {...field} type="number" placeholder="0.00"
+                          size="small" fullWidth error={!!errors.poValue} helperText={errors.poValue?.message as string} sx={fieldSx} />
+                      )} />
+                      <Controller name="poValueCurrency" control={control} render={({ field }) => (
+                        <FormControl size="small" sx={selectSx}>
+                          <Select {...field}>
+                            {CURRENCY_LIST.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                           </Select>
-                          <div className="flex gap-2 w-[200px]">
-                            <Select value={watch(`quotes.${index}.currency`)} onValueChange={(v) => setValue(`quotes.${index}.currency`, v)}>
-                              <SelectTrigger className="w-[80px] h-10"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {CURRENCY_LIST.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="💰 Amount"
-                              className="flex-1 h-10 font-mono"
-                              {...register(`quotes.${index}.quotedAmount` as const)}
-                            />
-                          </div>
-                          {fields.length > 1 && (
-                            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive/70 hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-lg" onClick={() => remove(index)}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        {(isAwarded || isLowest) && (
-                          <div className={cn(
-                            "flex items-center gap-1.5 mt-2.5 text-xs font-bold ml-10",
-                            isAwarded ? "text-success" : "text-primary"
-                          )}>
-                            {isAwarded ? (
-                              <><Star className="h-3.5 w-3.5 text-warning fill-warning" /> <span>🎉 Awarded Partner</span></>
-                            ) : (
-                              <><span>🏆</span> <span>Lowest Quote</span></>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <Button type="button" variant="outline" className="mt-4 gap-2 border-dashed border-2 border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 h-11" onClick={handleAddForwarder}>
-                  <Plus className="h-4 w-4" /> Add Another Quote
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                        </FormControl>
+                      )} />
+                    </Box>
+                  </FormField>
+                  <FormField label="Mode of Transport">
+                    <FormControl size="small" fullWidth error={!!errors.mode} sx={selectSx}>
+                      <Controller name="mode" control={control} render={({ field }) => (
+                        <Select {...field} displayEmpty>
+                          <MenuItem value="" disabled>Select mode</MenuItem>
+                          {MODES_LIST.map(m => <MenuItem key={m.value} value={m.value}>{getModeIcon(m.value)} {m.label}</MenuItem>)}
+                        </Select>
+                      )} />
+                    </FormControl>
+                  </FormField>
+                  <FormField label="Incoterms">
+                    <FormControl size="small" fullWidth error={!!errors.incoterms} sx={selectSx}>
+                      <Controller name="incoterms" control={control} render={({ field }) => (
+                        <Select {...field} displayEmpty>
+                          <MenuItem value="" disabled>Select incoterms</MenuItem>
+                          {INCOTERMS_LIST.map(i => <MenuItem key={i.value} value={i.value}>{i.label}</MenuItem>)}
+                        </Select>
+                      )} />
+                    </FormControl>
+                  </FormField>
+                </Box>
+              </Stack>
+            </Box>
+          )}
 
-          {/* ── Section: Award & Decision ────────────────── */}
-          <Card className="border-border/50 overflow-hidden">
-            <CardContent className="p-0">
-              <div className="px-5 py-3.5 bg-gradient-to-r from-warning/8 to-transparent border-b border-border/50 flex items-center gap-2">
-                <span className="text-lg">🏆</span>
-                <h3 className="text-sm font-bold text-foreground">Award & Decision</h3>
-                <span className="text-[10px] text-muted-foreground ml-1">— Finalize selection</span>
-              </div>
-              <div className="p-5 space-y-4">
-                <div className="grid grid-cols-3 gap-4 max-[1200px]:grid-cols-2 max-[900px]:grid-cols-1">
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold flex items-center gap-1.5">
-                      📌 Quotation Status
-                    </Label>
-                    <Select value={watch('status')} onValueChange={(v) => setValue('status', v)}>
-                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {STATUS_LIST.filter(s => isAdmin || (s !== 'Awaiting Approval' && s !== 'Rejected')).map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold flex items-center gap-1.5">
-                      🤝 Awarded To Forwarder
-                    </Label>
-                    <Select value={watch('awardedTo') || 'none'} onValueChange={(v) => setValue('awardedTo', v === 'none' ? '' : v)}>
-                      <SelectTrigger className="h-10"><SelectValue placeholder="🎯 No Award Chosen" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">🚫 No Award Chosen</SelectItem>
-                        {forwarders.map(f => <SelectItem key={f.id} value={f.name}>🏆 {f.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs font-semibold flex items-center gap-1.5">
-                      💰 Savings Calculation
-                    </Label>
-                    {autoSavings !== null ? (
-                      <div className="relative">
-                        <Input
-                          readOnly
-                          className={`h-10 font-bold pr-16 ${autoSavings >= 0 ? 'text-success border-success/50 bg-success/5' : 'text-destructive border-destructive/50 bg-destructive/5'}`}
-                          value={`${poValueCurrency} ${formatCurrency(Math.abs(autoSavings))}`}
-                        />
-                        <Badge variant={autoSavings >= 0 ? 'success' : 'destructive'} className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] px-1.5 py-0">AUTO</Badge>
-                      </div>
-                    ) : (
-                      <Input type="number" step="0.01" placeholder="📝 Manual amount" className="h-10" {...register('savings')} />
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="remarks" className="text-xs font-semibold flex items-center gap-1.5">
-                    📝 Remarks & Notes
-                  </Label>
-                  <Textarea id="remarks" placeholder="💭 Add any freight notes, special instructions, or operational comments..." maxLength={500} className="min-h-[80px] resize-none" {...register('remarks')} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          </div>
+          {sectionCard('Route & Cargo', Route, 'info.main',
+            <Stack spacing={1.75}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 1.5, sm: 1.75 } }}>
+                <Controller name="origin" control={control} render={({ field }) => (
+                  <LocationPopover value={field.value} setValue={(v) => setValue('origin', v, { shouldValidate: true })} label="Origin Port / City" />
+                )} />
+                <Controller name="destination" control={control} render={({ field }) => (
+                  <LocationPopover value={field.value} setValue={(v) => setValue('destination', v, { shouldValidate: true })} label="Destination Port / City" />
+                )} />
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: { xs: 1.5, sm: 1.75 } }}>
+                <Controller name="size" control={control} render={({ field }) => (
+                  <FormField label="Cargo Size / Type">
+                    <TextField {...field} placeholder="e.g. 1x40 HQ, LCL" size="small" fullWidth sx={fieldSx} />
+                  </FormField>
+                )} />
+                <Controller name="transitTime" control={control} render={({ field }) => (
+                  <FormField label="Transit Time">
+                    <TextField {...field} placeholder="e.g. 25 Days" size="small" fullWidth sx={fieldSx} />
+                  </FormField>
+                )} />
+                <Controller name="etd" control={control} render={({ field }) => (
+                  <FormField label="ETD">
+                    <TextField {...field} type="date" size="small" fullWidth sx={fieldSx} />
+                  </FormField>
+                )} />
+                <Controller name="eta" control={control} render={({ field }) => (
+                  <FormField label="ETA">
+                    <TextField {...field} type="date" size="small" fullWidth sx={fieldSx} />
+                  </FormField>
+                )} />
+              </Box>
+            </Stack>
+          )}
 
-          {/* ── Actions ──────────────────────────────────── */}
-          <div className="flex justify-between items-center pt-4 pb-2 px-6 border-t border-border">
-            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-              {validQuotesConverted.length > 0 && (
-                <span>📊 {validQuotesConverted.length} quote{validQuotesConverted.length !== 1 ? 's' : ''} entered</span>
+          {(validQuotesConverted.length > 0 || autoSavings !== null) && (
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1.25 }}>
+              {lowestAmountInPoCurrency > 0 && (
+                <Box sx={{ textAlign: 'center', p: 1.5, borderRadius: 1, border: '1px solid', borderColor: 'primary.light', bgcolor: 'rgba(15,118,110,0.04)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <Typography variant="caption" color="primary.main" fontWeight={700}>Lowest Quote</Typography>
+                  <Typography variant="h6" color="primary.main" fontWeight={800}>{poValueCurrency} {formatCurrency(lowestAmountInPoCurrency)}</Typography>
+                </Box>
               )}
-            </div>
-            <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={onClose} className="gap-2">
-                ✖️ Cancel
+              {autoSavings !== null && (
+                <Box sx={{ textAlign: 'center', p: 1.5, borderRadius: 1, border: '1px solid',
+                  borderColor: autoSavings >= 0 ? 'success.main' : 'error.main',
+                  bgcolor: autoSavings >= 0 ? 'rgba(22,130,86,0.04)' : 'rgba(194,65,45,0.04)',
+                  display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <Typography variant="caption" color={autoSavings >= 0 ? 'success.main' : 'error'} fontWeight={700}>
+                    {autoSavings >= 0 ? 'Total Savings' : 'Extra Cost'}
+                  </Typography>
+                  <Typography variant="h6" fontWeight={800} color={autoSavings >= 0 ? 'success.main' : 'error'}>
+                    {poValueCurrency} {formatCurrency(Math.abs(autoSavings))}
+                  </Typography>
+                </Box>
+              )}
+              {lowestAmountInPoCurrency > 0 && (
+                <Box sx={{ textAlign: 'center', p: 1.5, borderRadius: 1, border: '1px solid', borderColor: 'info.light', bgcolor: 'rgba(49,116,143,0.04)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <Typography variant="caption" color="info.main" fontWeight={700}>Freight % of PO</Typography>
+                  <Typography variant="h6" color="info.main" fontWeight={800}>{percentageValue}%</Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {sectionCard('Forwarder Quotes', AttachMoney, '#6366f1',
+            <Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {fields.map((field, index) => {
+                  const quoteRow = quotes?.[index];
+                  const quoteForwarder = quoteRow?.forwarder ?? field.forwarder;
+                  const quoteAmount = quoteRow?.quotedAmount ?? 0;
+                  const quoteCurrency = quoteRow?.currency ?? 'AED';
+                  const isAwarded = awardedTo === quoteForwarder;
+                  const isLowest = quoteAmount > 0 && validQuotesConverted.length > 1 &&
+                    convertCurrency(quoteAmount, quoteCurrency || 'AED', poValueCurrency) === lowestAmountInPoCurrency;
+
+                  return (
+                    <Paper key={field.id} variant="outlined" sx={{
+                      p: { xs: 1.25, sm: 1.5 },
+                      borderWidth: 1,
+                      borderRadius: 1.5,
+                      borderColor: isAwarded ? 'success.main' : isLowest ? 'primary.light' : 'divider',
+                      bgcolor: isAwarded ? 'rgba(22,130,86,0.045)' : isLowest ? 'rgba(15,118,110,0.045)' : 'background.paper',
+                    }}>
+                      <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                          xs: '32px minmax(0, 1fr)',
+                          sm: '32px minmax(0, 1fr) 92px minmax(120px, 0.55fr) 36px',
+                        },
+                        gap: { xs: 1, sm: 1.25 },
+                        alignItems: 'center',
+                      }}>
+                        <Box sx={{
+                          width: 30, height: 30, minWidth: 30, borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '0.75rem', fontWeight: 700,
+                          bgcolor: isAwarded ? 'success.main' : isLowest ? 'primary.main' : 'action.disabledBackground',
+                          color: isAwarded || isLowest ? '#fff' : 'text.secondary',
+                        }}>
+                          {index + 1}
+                        </Box>
+                        <Controller name={`quotes.${index}.forwarder`} control={control} render={({ field: fField }) => (
+                          <FormControl size="small" fullWidth sx={selectSx}>
+                            <Select {...fField} displayEmpty>
+                              <MenuItem value="" disabled>Select Forwarder</MenuItem>
+                              {forwarders.map(f => <MenuItem key={f.id} value={f.name}>{f.name}</MenuItem>)}
+                            </Select>
+                          </FormControl>
+                        )} />
+                        <Controller name={`quotes.${index}.currency`} control={control} render={({ field: cField }) => (
+                          <FormControl size="small" sx={{ ...selectSx, gridColumn: { xs: '2', sm: 'auto' }, width: { xs: 96, sm: 'auto' } }}>
+                            <Select {...cField}>
+                              {CURRENCY_LIST.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                            </Select>
+                          </FormControl>
+                        )} />
+                        <Controller name={`quotes.${index}.quotedAmount`} control={control} render={({ field: aField }) => (
+                          <TextField {...aField} type="number" placeholder="Amount" size="small"
+                            sx={{ ...fieldSx, gridColumn: { xs: '2', sm: 'auto' }, maxWidth: { xs: '100%', sm: 'none' } }}
+                            inputProps={{ style: { fontFamily: 'monospace' } }} />
+                        )} />
+                        {fields.length > 1 && (
+                          <IconButton size="small" color="error" onClick={() => remove(index)} aria-label={`Remove quote ${index + 1}`}
+                            sx={{ justifySelf: { xs: 'end', sm: 'center' }, gridColumn: { xs: '2', sm: 'auto' } }}>
+                            <Close fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Box>
+                      {(isAwarded || isLowest) && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1, ml: 5 }}>
+                          {isAwarded ? (
+                            <Chip icon={<Star />} label="Awarded Partner" size="small" color="warning" sx={{ fontWeight: 600 }} />
+                          ) : (
+                            <Chip label="Lowest Quote" size="small" color="primary" variant="outlined" sx={{ fontWeight: 600 }} />
+                          )}
+                        </Box>
+                      )}
+                    </Paper>
+                  );
+                })}
+              </Box>
+              <Button variant="outlined" startIcon={<Add />} onClick={handleAddForwarder}
+                sx={{ mt: 2, borderStyle: 'dashed', borderWidth: 1.5, width: '100%', py: 1.25, borderColor: 'primary.light', color: 'primary.main', bgcolor: 'rgba(15,118,110,0.03)' }}>
+                Add Another Quote
               </Button>
-              <Button type="submit" className="gap-2 bg-gradient-to-r from-primary via-primary to-purple-500 text-white px-8 h-11 font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:opacity-90 transition-all">
-                {quotation ? '💾 Update Quotation' : '🚀 Submit Quotation'}
-              </Button>
-            </div>
-          </div>
-        </form>
-      </DialogContent>
+            </Box>
+          )}
+
+          {sectionCard('Award & Decision', EmojiEvents, 'success.main',
+            <Stack spacing={1.75}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: { xs: 1.5, sm: 1.75 } }}>
+                <FormField label="Quotation Status">
+                  <FormControl size="small" fullWidth sx={selectSx}>
+                    <Controller name="status" control={control} render={({ field }) => (
+                      <Select {...field}>
+                        {STATUS_LIST.filter(s => isAdmin || (s !== 'Awaiting Approval' && s !== 'Rejected')).map(s => (
+                          <MenuItem key={s} value={s}>{s}</MenuItem>
+                        ))}
+                      </Select>
+                    )} />
+                  </FormControl>
+                </FormField>
+                <FormField label="Awarded To Forwarder">
+                  <FormControl size="small" fullWidth sx={selectSx}>
+                    <Controller name="awardedTo" control={control} render={({ field }) => (
+                      <Select {...field} value={field.value || 'none'}
+                        onChange={e => field.onChange(e.target.value === 'none' ? '' : e.target.value)}>
+                        <MenuItem value="none">No Award Chosen</MenuItem>
+                        {forwarders.map(f => <MenuItem key={f.id} value={f.name}>{f.name}</MenuItem>)}
+                      </Select>
+                    )} />
+                  </FormControl>
+                </FormField>
+                <FormField label={autoSavings !== null ? 'Savings Calculation' : 'Savings (Manual)'}>
+                  {autoSavings !== null ? (
+                    <TextField
+                      value={`${poValueCurrency} ${formatCurrency(Math.abs(autoSavings))}`}
+                      size="small"
+                      fullWidth
+                      InputProps={{ readOnly: true }}
+                      sx={{
+                        ...fieldSx,
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: autoSavings >= 0 ? 'rgba(22,130,86,0.05)' : 'rgba(194,65,45,0.05)',
+                        },
+                        '& .MuiInputBase-input': {
+                          fontWeight: 700,
+                          color: autoSavings >= 0 ? 'success.main' : 'error.main',
+                        },
+                      }}
+                    />
+                  ) : (
+                    <Controller name="savings" control={control} render={({ field }) => (
+                      <TextField {...field} type="number" placeholder="0.00" size="small" fullWidth sx={fieldSx} />
+                    )} />
+                  )}
+                </FormField>
+              </Box>
+              <Controller name="remarks" control={control} render={({ field }) => (
+                <FormField label="Remarks & Notes">
+                  <TextField {...field} placeholder="Add any freight notes, special instructions..."
+                    multiline rows={3} size="small" fullWidth inputProps={{ maxLength: 500 }} sx={fieldSx} />
+                </FormField>
+              )} />
+            </Stack>
+          )}
+        </Box>
+
+        <Box sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'stretch', sm: 'center' },
+          gap: 1.5,
+          flexDirection: { xs: 'column', sm: 'row' },
+          py: { xs: 1.25, sm: 1.5 },
+          px: { xs: 2, sm: 2.5 },
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          flexShrink: 0,
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 2,
+          boxShadow: '0 -12px 24px -24px rgba(23,32,31,0.55)',
+        }}>
+          <Typography variant="caption" color="text.secondary">
+            {validQuotesConverted.length > 0 && `${validQuotesConverted.length} quote${validQuotesConverted.length !== 1 ? 's' : ''} entered`}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.25, justifyContent: 'flex-end' }}>
+            <Button variant="outlined" onClick={onClose}>Cancel</Button>
+            <Button type="submit" variant="contained" startIcon={quotation ? <Check /> : <Add />} sx={{ px: 4 }}>
+              {quotation ? 'Update Quotation' : 'Submit Quotation'}
+            </Button>
+          </Box>
+        </Box>
+      </Box>
     </Dialog>
   );
 }

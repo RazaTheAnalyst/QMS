@@ -33,6 +33,10 @@ export interface Quotation {
   eta: string;
   status: string;
   savings: number;
+  createdBy?: string;
+  createdAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 export type QuotationInput = Omit<Quotation, 'id' | 'percentage'>;
@@ -43,9 +47,9 @@ export interface Filters {
   status: string;
 }
 
-export const ENTITIES = ['UAE', 'Qatar', 'Oman', 'KSA'] as const;
+export const ENTITIES = ['UAE', 'Qatar', 'Oman'] as const;
 
-export const ADMIN_EMAIL = 'admin@netceedmea.com';
+export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@netceedmea.com';
 
 export const STATUS_LIST = [
   'Awaiting Approval',

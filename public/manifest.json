@@ -1,7 +1,7 @@
 {
   "name": "Quotation Manager",
   "short_name": "Quotations",
-  "description": "Manage logistics quotations across UAE, Qatar, Oman, KSA",
+  "description": "Manage logistics quotations across UAE, Qatar and Oman",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

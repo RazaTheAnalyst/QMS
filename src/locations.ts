@@ -204,4 +204,5 @@ export const MODES_LIST = [
   { value: 'Road', label: 'Road / Trucking' },
   { value: 'Rail', label: 'Rail Freight' },
   { value: 'Multi-modal', label: 'Multi-modal / Intermodal' },
+  { value: 'Courier', label: 'Courier / Express' },
 ] as const;
