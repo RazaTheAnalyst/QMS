@@ -1,20 +1,23 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Box, BottomNavigation, BottomNavigationAction, Fab, Badge } from '@mui/material';
-import { Dashboard, Description, LocalShipping, Add } from '@mui/icons-material';
+import { Dashboard, Description, LocalShipping, Add, ManageAccounts } from '@mui/icons-material';
+import type { AppModule } from '../types';
 
 interface MobileNavProps {
   onAdd: () => void;
   pendingApprovalsCount: number;
+  modules: AppModule[];
 }
 
-export function MobileNav({ onAdd, pendingApprovalsCount }: MobileNavProps) {
+export function MobileNav({ onAdd, pendingApprovalsCount, modules }: MobileNavProps) {
   const location = useLocation();
 
   const tabs = [
-    { to: '/', label: 'Dashboard', icon: Dashboard },
-    { to: '/quotations', label: 'Quotations', icon: Description, badge: pendingApprovalsCount },
-    { to: '/forwarders', label: 'Forwarders', icon: LocalShipping },
-  ];
+    { to: '/', label: 'Dashboard', icon: Dashboard, module: 'dashboard' as const },
+    { to: '/quotations', label: 'Quotations', icon: Description, badge: pendingApprovalsCount, module: 'quotations' as const },
+    { to: '/forwarders', label: 'Forwarders', icon: LocalShipping, module: 'forwarders' as const },
+    { to: '/users', label: 'Users', icon: ManageAccounts, module: 'users' as const },
+  ].filter(tab => modules.includes(tab.module));
 
   return (
     <Box sx={{ display: { md: 'none' }, position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1200 }}>
@@ -65,4 +68,3 @@ export function MobileNav({ onAdd, pendingApprovalsCount }: MobileNavProps) {
     </Box>
   );
 }
-

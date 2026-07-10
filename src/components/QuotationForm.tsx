@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
+import type { FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ENTITIES, STATUS_LIST, CURRENCY_LIST, convertCurrency } from '../types';
+import { ENTITIES, STATUS_LIST, CURRENCY_LIST, calculateAwardSavings, convertCurrency } from '../types';
 import { ADMIN_EMAIL } from '../types';
 import type { Quotation, Forwarder, QuotationInput } from '../types';
 import { useAuth } from '../auth';
@@ -11,7 +12,7 @@ import { getModeIcon, formatCurrency } from '@/lib/utils';
 import {
   Dialog, DialogTitle, Box, Button, TextField,
   FormControl, Select, MenuItem,
-  Typography, IconButton, Chip, Popover, Stack, Paper,
+  Typography, IconButton, Chip, Popover, Stack, Paper, Alert, FormHelperText,
 } from '@mui/material';
 import {
   Close, Add, Star, LocationOn, ExpandMore, Info, Route,
@@ -46,11 +47,13 @@ const schema = z.object({
 type QuotationFormData = z.infer<typeof schema>;
 
 function LocationPopover({
-  value, setValue, label,
+  value, setValue, label, error, helperText,
 }: {
   value: string;
   setValue: (v: string) => void;
   label: string;
+  error?: boolean;
+  helperText?: string;
 }) {
   const [search, setSearch] = useState(value);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -80,6 +83,8 @@ function LocationPopover({
         placeholder="Search country or city..."
         size="small"
         fullWidth
+        error={error}
+        helperText={helperText}
         sx={fieldSx}
         InputProps={{
           readOnly: true,
@@ -214,6 +219,7 @@ interface QuotationFormProps {
 export default function QuotationForm({ quotation, forwarders, onSave, onClose }: QuotationFormProps) {
   const { user } = useAuth();
   const isAdmin = user?.email === ADMIN_EMAIL;
+  const [submitError, setSubmitError] = useState('');
 
   const { control, handleSubmit, setValue, formState: { errors, isDirty } } = useForm<QuotationFormData>({
     resolver: zodResolver(schema),
@@ -270,29 +276,30 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
   })() || '0.00';
 
   const autoSavings = validQuotesConverted.length >= 2
-    ? (() => {
-        const awardedAmt = awardedTo
-          ? (validQuotesConverted.find(q => q.forwarder === awardedTo)?.amountInPoCurrency ?? lowestAmountInPoCurrency)
-          : lowestAmountInPoCurrency;
-        return Math.round((lowestAmountInPoCurrency - awardedAmt) * 100) / 100;
-      })() : null;
+    ? calculateAwardSavings(quotes, poValueCurrency, awardedTo) : null;
 
   const handleFormSubmit = (data: QuotationFormData) => {
+    setSubmitError('');
     const validQ = data.quotes.filter(q => q && q.quotedAmount > 0);
     const validQConverted = validQ.map(q => ({
       ...q,
       amountInPoCurrency: convertCurrency(q.quotedAmount, q.currency || 'AED', data.poValueCurrency || 'AED'),
     }));
     const lowestAmt = validQConverted.length > 0 ? Math.min(...validQConverted.map(q => q.amountInPoCurrency)) : 0;
-    const awardedAmt = data.awardedTo
-      ? (validQConverted.find(q => q.forwarder === data.awardedTo)?.amountInPoCurrency ?? lowestAmt)
-      : lowestAmt;
     const pctVal = data.poValue > 0 ? (lowestAmt / data.poValue) * 100 : 0;
     let savingsVal = data.savings ?? 0;
     if (validQConverted.length >= 2) {
-      savingsVal = Math.round((lowestAmt - awardedAmt) * 100) / 100;
+      savingsVal = calculateAwardSavings(validQ, data.poValueCurrency || 'AED', data.awardedTo) ?? 0;
     }
     onSave({ ...data, percentage: Math.round(pctVal * 100) / 100, savings: savingsVal });
+  };
+
+  const handleInvalidSubmit = (formErrors: FieldErrors<QuotationFormData>) => {
+    const firstError = Object.values(formErrors)[0];
+    const message = typeof firstError?.message === 'string'
+      ? firstError.message
+      : 'Please complete the required fields highlighted in the form.';
+    setSubmitError(message);
   };
 
   const handleAddForwarder = () => {
@@ -364,7 +371,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
         </Box>
       </DialogTitle>
 
-      <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} noValidate sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: 'inherit' }}>
+      <Box component="form" onSubmit={handleSubmit(handleFormSubmit, handleInvalidSubmit)} noValidate sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: 'inherit' }}>
         <Box sx={{ overflowY: 'auto', p: { xs: 1.5, sm: 2 }, pb: { xs: 2.5, sm: 2 }, display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 1.75 } }}>
           {sectionCard('General Details', Info, 'primary.main',
             <Box>
@@ -416,6 +423,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
                           {MODES_LIST.map(m => <MenuItem key={m.value} value={m.value}>{getModeIcon(m.value)} {m.label}</MenuItem>)}
                         </Select>
                       )} />
+                      {errors.mode?.message && <FormHelperText>{errors.mode.message}</FormHelperText>}
                     </FormControl>
                   </FormField>
                   <FormField label="Incoterms">
@@ -426,6 +434,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
                           {INCOTERMS_LIST.map(i => <MenuItem key={i.value} value={i.value}>{i.label}</MenuItem>)}
                         </Select>
                       )} />
+                      {errors.incoterms?.message && <FormHelperText>{errors.incoterms.message}</FormHelperText>}
                     </FormControl>
                   </FormField>
                 </Box>
@@ -437,16 +446,28 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
             <Stack spacing={1.75}>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 1.5, sm: 1.75 } }}>
                 <Controller name="origin" control={control} render={({ field }) => (
-                  <LocationPopover value={field.value} setValue={(v) => setValue('origin', v, { shouldValidate: true })} label="Origin Port / City" />
+                  <LocationPopover
+                    value={field.value}
+                    setValue={(v) => setValue('origin', v, { shouldValidate: true })}
+                    label="Origin Port / City"
+                    error={!!errors.origin}
+                    helperText={errors.origin?.message as string}
+                  />
                 )} />
                 <Controller name="destination" control={control} render={({ field }) => (
-                  <LocationPopover value={field.value} setValue={(v) => setValue('destination', v, { shouldValidate: true })} label="Destination Port / City" />
+                  <LocationPopover
+                    value={field.value}
+                    setValue={(v) => setValue('destination', v, { shouldValidate: true })}
+                    label="Destination Port / City"
+                    error={!!errors.destination}
+                    helperText={errors.destination?.message as string}
+                  />
                 )} />
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: { xs: 1.5, sm: 1.75 } }}>
                 <Controller name="size" control={control} render={({ field }) => (
                   <FormField label="Cargo Size / Type">
-                    <TextField {...field} placeholder="e.g. 1x40 HQ, LCL" size="small" fullWidth sx={fieldSx} />
+                    <TextField {...field} placeholder="e.g. 1x40 HQ, LCL" size="small" fullWidth error={!!errors.size} helperText={errors.size?.message as string} sx={fieldSx} />
                   </FormField>
                 )} />
                 <Controller name="transitTime" control={control} render={({ field }) => (
@@ -659,9 +680,17 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
           zIndex: 2,
           boxShadow: '0 -12px 24px -24px rgba(23,32,31,0.55)',
         }}>
-          <Typography variant="caption" color="text.secondary">
-            {validQuotesConverted.length > 0 && `${validQuotesConverted.length} quote${validQuotesConverted.length !== 1 ? 's' : ''} entered`}
-          </Typography>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            {submitError ? (
+              <Alert severity="error" sx={{ py: 0, alignItems: 'center', '& .MuiAlert-message': { py: 0.5 } }}>
+                {submitError}
+              </Alert>
+            ) : (
+              <Typography variant="caption" color="text.secondary">
+                {validQuotesConverted.length > 0 && `${validQuotesConverted.length} quote${validQuotesConverted.length !== 1 ? 's' : ''} entered`}
+              </Typography>
+            )}
+          </Box>
           <Box sx={{ display: 'flex', gap: 1.25, justifyContent: 'flex-end' }}>
             <Button variant="outlined" onClick={onClose}>Cancel</Button>
             <Button type="submit" variant="contained" startIcon={quotation ? <Check /> : <Add />} sx={{ px: 4 }}>

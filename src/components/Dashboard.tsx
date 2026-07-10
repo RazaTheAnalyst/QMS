@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ENTITIES, convertCurrency } from '../types';
+import { ENTITIES, calculateAwardSavings, convertCurrency } from '../types';
 import { ADMIN_EMAIL } from '../types';
 import type { Quotation, Forwarder } from '../types';
 import { useAuth } from '../auth';
@@ -93,7 +93,8 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
   }, 0)), [activeQuotations, displayCurrency]);
 
   const totalSavings = useMemo(() => safeNum(activeQuotations.reduce((sum, q) => {
-    const savingsInDisplay = convertCurrency(q.savings || 0, q.poValueCurrency || 'AED', displayCurrency);
+    const savings = calculateAwardSavings(q.quotes, q.poValueCurrency || 'AED', q.awardedTo) ?? q.savings ?? 0;
+    const savingsInDisplay = convertCurrency(savings, q.poValueCurrency || 'AED', displayCurrency);
     return sum + savingsInDisplay;
   }, 0)), [activeQuotations, displayCurrency]);
 

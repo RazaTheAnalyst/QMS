@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import {
-  STATUS_LIST, convertCurrency, ADMIN_EMAIL,
+  STATUS_LIST, calculateAwardSavings, convertCurrency, ADMIN_EMAIL,
 } from '../types';
 import type { Quotation, Forwarder } from '../types';
 import { useAuth } from '../auth';
@@ -116,15 +116,40 @@ function formatStamp(date?: string) {
   });
 }
 
-function PersonStamp({ name, date }: { name?: string; date?: string }) {
+function PersonStamp({ label, name, date }: { label: string; name?: string; date?: string }) {
   return (
-    <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
-      <Typography variant="caption" fontWeight={700} color="text.primary" noWrap>{displayName(name)}</Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0, fontSize: '0.6875rem' }} noWrap>
+    <Box sx={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 0.75,
+      px: 1,
+      py: 0.65,
+      borderRadius: 1,
+      border: '1px solid',
+      borderColor: 'divider',
+      bgcolor: 'background.paper',
+      minWidth: 0,
+      maxWidth: '100%',
+    }}>
+      <Typography variant="caption" color="text.secondary" fontWeight={800} sx={{ letterSpacing: 0, whiteSpace: 'nowrap' }}>
+        {label}
+      </Typography>
+      <Typography variant="caption" fontWeight={750} color="text.primary" sx={{ letterSpacing: 0 }}>
+        {displayName(name)}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0, fontWeight: 600 }}>
         {formatStamp(date)}
       </Typography>
     </Box>
   );
+}
+
+function getEffectiveSavings(quotation: Quotation) {
+  return calculateAwardSavings(
+    quotation.quotes,
+    quotation.poValueCurrency || 'AED',
+    quotation.awardedTo
+  ) ?? quotation.savings;
 }
 
 interface QuotationTableProps {
@@ -184,19 +209,22 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
   const exportToExcel = useCallback(async () => {
     try {
       const XLSX = await import('xlsx');
-      const data = displayedQuotations.map(q => ({
-        Entity: q.entity, Supplier: q.supplierName, 'PO Number': q.supplierPO,
-        'PO Value (AED)': q.poValue, Origin: q.origin, Destination: q.destination,
-        Mode: q.mode, Size: q.size, 'Transit Time': q.transitTime,
-        ETD: q.etd, ETA: q.eta, Incoterms: q.incoterms,
-        Status: q.status, 'Freight %': q.percentage, 'Savings (AED)': q.savings,
-        'Awarded To': q.awardedTo || '-',
-        ...forwarders.reduce((acc, f) => {
-          const quote = q.quotes.find(qu => qu.forwarder === f.name);
-          acc[f.name] = quote?.quotedAmount || 0;
-          return acc;
-        }, {} as Record<string, number>),
-      }));
+      const data = displayedQuotations.map(q => {
+        const savings = getEffectiveSavings(q);
+        return {
+          Entity: q.entity, Supplier: q.supplierName, 'PO Number': q.supplierPO,
+          'PO Value (AED)': q.poValue, Origin: q.origin, Destination: q.destination,
+          Mode: q.mode, Size: q.size, 'Transit Time': q.transitTime,
+          ETD: q.etd, ETA: q.eta, Incoterms: q.incoterms,
+          Status: q.status, 'Freight %': q.percentage, 'Savings (AED)': savings,
+          'Awarded To': q.awardedTo || '-',
+          ...forwarders.reduce((acc, f) => {
+            const quote = q.quotes.find(qu => qu.forwarder === f.name);
+            acc[f.name] = quote?.quotedAmount || 0;
+            return acc;
+          }, {} as Record<string, number>),
+        };
+      });
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Quotations');
@@ -329,6 +357,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                 displayedQuotations.map(q => {
                   const entityColor = ENTITY_COLORS[q.entity] || '#66736f';
                   const statusStyle = getStatusStyle(q.status, muiTheme.palette.mode);
+                  const savings = getEffectiveSavings(q);
                   return (
                     <TableRow
                       key={q.id}
@@ -418,14 +447,14 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="body2" fontWeight={600} fontFamily="monospace"
-                          color={q.savings < 0 ? 'error' : 'success.main'}>
-                          {q.savings !== 0 ? (
-                            <>{formatCurrency(Math.abs(q.savings))} {q.poValueCurrency || 'AED'}</>
+                          color={savings < 0 ? 'error' : 'success.main'}>
+                          {savings !== 0 ? (
+                            <>{formatCurrency(Math.abs(savings))} {q.poValueCurrency || 'AED'}</>
                           ) : '-'}
                         </Typography>
-                        {q.savings !== 0 && (q.poValueCurrency || 'AED') !== 'AED' && (
+                        {savings !== 0 && (q.poValueCurrency || 'AED') !== 'AED' && (
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            AED {formatCurrency(convertCurrency(Math.abs(q.savings), q.poValueCurrency || 'AED', 'AED'))}
+                            AED {formatCurrency(convertCurrency(Math.abs(savings), q.poValueCurrency || 'AED', 'AED'))}
                           </Typography>
                         )}
                       </TableCell>
@@ -452,6 +481,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
             displayedQuotations.map(q => {
               const entityColor = ENTITY_COLORS[q.entity] || '#66736f';
                   const statusStyle = getStatusStyle(q.status, muiTheme.palette.mode);
+              const savings = getEffectiveSavings(q);
               return (
                 <Card key={q.id} sx={{
                   cursor: 'pointer', borderRadius: 1.5, overflow: 'hidden',
@@ -493,11 +523,11 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                           sx={{ fontSize: '0.75rem', color: '#fff', bgcolor: '#6366f1' }} />
                       )}
                     </Box>
-                    {q.savings !== 0 && (
-                      <Typography variant="body2" fontWeight={600} color={q.savings < 0 ? 'error' : 'success.main'}
+                    {savings !== 0 && (
+                      <Typography variant="body2" fontWeight={600} color={savings < 0 ? 'error' : 'success.main'}
                         sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
                         <AttachMoney fontSize="small" />
-                        {q.savings < 0 ? 'Extra Cost' : 'Savings'}: {q.poValueCurrency || 'AED'} {formatCurrency(Math.abs(q.savings))}
+                        {savings < 0 ? 'Extra Cost' : 'Savings'}: {q.poValueCurrency || 'AED'} {formatCurrency(Math.abs(savings))}
                       </Typography>
                     )}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
@@ -531,6 +561,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
           const dq = currentQuotation;
           const entityColor = ENTITY_COLORS[dq.entity] || '#66736f';
           const statusStyle = getStatusStyle(dq.status, muiTheme.palette.mode);
+          const savings = getEffectiveSavings(dq);
           return (
             <>
               <Box sx={{ height: 4, background: `linear-gradient(90deg, ${entityColor}, ${entityColor}88)` }} />
@@ -550,10 +581,10 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                     <Typography variant="caption" color="text.secondary" fontWeight={700}>Freight %</Typography>
                     <Typography variant="body1" fontWeight={700} color="#6366f1">{Number.isFinite(dq.percentage) ? dq.percentage : 0}%</Typography>
                   </Box>
-                  <Box sx={{ p: 1.5, borderRadius: 1, bgcolor: dq.savings < 0 ? 'rgba(220,38,38,0.06)' : 'rgba(5,150,105,0.06)', border: '1px solid', borderColor: dq.savings < 0 ? 'rgba(220,38,38,0.2)' : 'rgba(5,150,105,0.2)' }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700}>{dq.savings < 0 ? 'Extra Cost' : 'Savings'}</Typography>
-                    <Typography variant="body1" fontWeight={700} color={dq.savings < 0 ? '#dc2626' : '#059669'}>
-                      {dq.savings !== 0 ? `${dq.poValueCurrency || 'AED'} ${formatCurrency(Math.abs(dq.savings))}` : '-'}
+                  <Box sx={{ p: 1.5, borderRadius: 1, bgcolor: savings < 0 ? 'rgba(220,38,38,0.06)' : 'rgba(5,150,105,0.06)', border: '1px solid', borderColor: savings < 0 ? 'rgba(220,38,38,0.2)' : 'rgba(5,150,105,0.2)' }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>{savings < 0 ? 'Extra Cost' : 'Savings'}</Typography>
+                    <Typography variant="body1" fontWeight={700} color={savings < 0 ? '#dc2626' : '#059669'}>
+                      {savings !== 0 ? `${dq.poValueCurrency || 'AED'} ${formatCurrency(Math.abs(savings))}` : '-'}
                     </Typography>
                   </Box>
                   <Box sx={{ p: 1.5, borderRadius: 1, bgcolor: statusStyle.bg, border: '1px solid', borderColor: statusStyle.border }}>
@@ -569,26 +600,6 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                     {dq.remarks}
                   </Alert>
                 )}
-
-                <Box sx={{
-                  mb: 2,
-                  px: 0.5,
-                  display: 'flex',
-                  alignItems: { xs: 'flex-start', sm: 'center' },
-                  flexDirection: { xs: 'column', sm: 'row' },
-                  gap: { xs: 0.75, sm: 1.5 },
-                  color: 'text.secondary',
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Created</Typography>
-                    <PersonStamp name={dq.createdBy} date={dq.createdAt} />
-                  </Box>
-                  <Box sx={{ width: 1, height: 14, bgcolor: 'divider', display: { xs: 'none', sm: 'block' } }} />
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Approved</Typography>
-                    <PersonStamp name={dq.approvedBy} date={dq.approvedAt} />
-                  </Box>
-                </Box>
 
                 <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover', mb: 2.5, display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr 1fr' }, gap: 2, borderRadius: 1.5 }}>
                   <Box><Typography variant="caption" color="text.secondary" fontWeight={700}>Origin</Typography>
@@ -617,9 +628,9 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                       </Box>
                       <Typography variant="subtitle2" fontWeight={700}>Forwarder Quotes</Typography>
                     </Box>
-                    {dq.savings !== 0 && (
-                      <Chip label={`${dq.savings < 0 ? 'Extra Cost' : 'Savings'}: ${dq.poValueCurrency || 'AED'} ${formatCurrency(Math.abs(dq.savings))}`}
-                        size="small" color={dq.savings < 0 ? 'error' : 'success'} sx={{ fontWeight: 600 }} />
+                    {savings !== 0 && (
+                      <Chip label={`${savings < 0 ? 'Extra Cost' : 'Savings'}: ${dq.poValueCurrency || 'AED'} ${formatCurrency(Math.abs(savings))}`}
+                        size="small" color={savings < 0 ? 'error' : 'success'} sx={{ fontWeight: 600 }} />
                     )}
                   </Box>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -656,11 +667,23 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                 </Box>
 
                 {dq.remarks && (
-                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover', mb: 2.5, display: 'flex', gap: 1, borderRadius: 1.5 }}>
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover', mb: 1.25, display: 'flex', gap: 1, borderRadius: 1.5 }}>
                     <Send fontSize="small" color="action" sx={{ mt: 0.25 }} />
                     <Typography variant="body2" color="text.secondary">{dq.remarks}</Typography>
                   </Paper>
                 )}
+
+                <Box sx={{
+                  mb: 2.5,
+                  display: 'flex',
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  gap: 1,
+                  flexWrap: 'wrap',
+                }}>
+                  <PersonStamp label="Created by" name={dq.createdBy} date={dq.createdAt} />
+                  <PersonStamp label="Approved by" name={dq.approvedBy} date={dq.approvedAt} />
+                </Box>
 
                 <Box sx={{
                   display: 'flex',

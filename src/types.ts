@@ -12,6 +12,22 @@ export interface Forwarder {
   phone: string;
 }
 
+export type UserRole = 'Admin' | 'Logistics' | 'Sales';
+export type AppModule = 'dashboard' | 'quotations' | 'forwarders' | 'users';
+
+export interface AppUser {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  modules: AppModule[];
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type AppUserInput = Omit<AppUser, 'id' | 'createdAt' | 'updatedAt'>;
+
 export interface Quotation {
   id: number;
   entity: string;
@@ -51,6 +67,15 @@ export const ENTITIES = ['UAE', 'Qatar', 'Oman'] as const;
 
 export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@netceedmea.com';
 
+export const USER_ROLES: UserRole[] = ['Admin', 'Logistics', 'Sales'];
+
+export const APP_MODULES: Array<{ key: AppModule; label: string }> = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'quotations', label: 'Quotations' },
+  { key: 'forwarders', label: 'Forwarders' },
+  { key: 'users', label: 'Users' },
+];
+
 export const STATUS_LIST = [
   'Awaiting Approval',
   'Rejected',
@@ -80,4 +105,31 @@ export function convertCurrency(amount: number, from: string, to: string): numbe
   const rateFrom = EXCHANGE_RATES[from] || 1.0;
   const rateTo = EXCHANGE_RATES[to] || 1.0;
   return amount * (rateTo / rateFrom);
+}
+
+export function calculateAwardSavings(
+  quotes: Quote[] = [],
+  poValueCurrency = 'AED',
+  awardedTo = ''
+): number | null {
+  const validQuotes = quotes.filter(q => q.quotedAmount > 0);
+  if (validQuotes.length < 2) return null;
+
+  const convertedQuotes = validQuotes.map(q => ({
+    forwarder: q.forwarder,
+    amount: convertCurrency(q.quotedAmount, q.currency || 'AED', poValueCurrency),
+  }));
+  const amounts = convertedQuotes.map(q => q.amount);
+  const lowestAmount = Math.min(...amounts);
+  const highestAmount = Math.max(...amounts);
+  if (!awardedTo) return null;
+
+  const awardedAmount = convertedQuotes.find(q => q.forwarder === awardedTo)?.amount;
+  if (awardedAmount === undefined) return null;
+
+  if (awardedAmount > lowestAmount) {
+    return Math.round((lowestAmount - awardedAmount) * 100) / 100;
+  }
+
+  return Math.round((highestAmount - lowestAmount) * 100) / 100;
 }

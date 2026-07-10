@@ -1,6 +1,6 @@
-import type { Quotation, QuotationInput, Forwarder } from './types';
+import type { Quotation, QuotationInput, Forwarder, AppUser, AppUserInput, AppModule, UserRole } from './types';
 import { supabase } from './supabase';
-import { convertCurrency } from './types';
+import { calculateAwardSavings, convertCurrency } from './types';
 
 // --- Row types (snake_case from Supabase) ---
 interface QuotationRow {
@@ -31,6 +31,17 @@ interface ForwarderRow {
   contact_person: string | null;
   email: string | null;
   phone: string | null;
+}
+
+interface AppUserRow {
+  id: number;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+  modules: unknown;
+  active: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 // --- Mappers ---
@@ -138,6 +149,22 @@ function rowToForwarder(row: ForwarderRow): Forwarder {
   };
 }
 
+function rowToAppUser(row: AppUserRow): AppUser {
+  const modules = Array.isArray(row.modules)
+    ? row.modules.map(String).filter(Boolean) as AppModule[]
+    : [];
+  return {
+    id: row.id,
+    name: row.name ?? '',
+    email: row.email ?? '',
+    role: (row.role ?? 'Sales') as UserRole,
+    modules,
+    active: row.active ?? true,
+    createdAt: row.created_at ?? '',
+    updatedAt: row.updated_at ?? '',
+  };
+}
+
 function quotationInputToRow(data: QuotationInput, percentage = 0) {
   return {
     entity: data.entity,
@@ -177,20 +204,22 @@ function forwarderInputToRow(data: Omit<Forwarder, 'id'>) {
   };
 }
 
+function appUserInputToRow(data: AppUserInput) {
+  return {
+    name: data.name,
+    email: data.email.toLowerCase().trim(),
+    role: data.role,
+    modules: data.modules,
+    active: data.active,
+  };
+}
+
 function safeMin(arr: number[]): number {
   if (arr.length === 0) return 0;
   let min = Infinity;
   for (const v of arr) { if (v < min) min = v; }
   return min;
 }
-
-function safeMax(arr: number[]): number {
-  if (arr.length === 0) return 0;
-  let max = -Infinity;
-  for (const v of arr) { if (v > max) max = v; }
-  return max;
-}
-
 
 function computePercentage(data: { poValue?: number; poValueCurrency?: string; quotes?: { forwarder: string; quotedAmount: number; currency?: string }[] }): number {
   const poValue = data.poValue ?? 0;
@@ -203,14 +232,11 @@ function computePercentage(data: { poValue?: number; poValueCurrency?: string; q
   return Math.round((lowestAmount / poValue) * 10000) / 100;
 }
 
-function computeSavings(data: { poValueCurrency?: string; quotes?: { forwarder: string; quotedAmount: number; currency?: string }[]; savings?: number }, manualSavings?: number): number {
+function computeSavings(data: { poValueCurrency?: string; quotes?: { forwarder: string; quotedAmount: number; currency?: string }[]; awardedTo?: string; savings?: number }, manualSavings?: number): number {
   const validQuotes = (data.quotes ?? []).filter(q => q.quotedAmount > 0);
   if (validQuotes.length < 2) return manualSavings ?? data.savings ?? 0;
-  const poCurrency = data.poValueCurrency || 'AED';
-  const convertedAmounts = validQuotes.map(q => convertCurrency(q.quotedAmount, q.currency || 'AED', poCurrency));
-  const highest = safeMax(convertedAmounts);
-  const lowest = safeMin(convertedAmounts);
-  return Math.round((highest - lowest) * 100) / 100;
+  const awardSavings = calculateAwardSavings(validQuotes, data.poValueCurrency || 'AED', data.awardedTo || '');
+  return awardSavings ?? manualSavings ?? data.savings ?? 0;
 }
 
 // --- Quotations API ---
@@ -262,6 +288,7 @@ export async function updateQuotationAPI(id: number, input: Partial<QuotationInp
   const mergedQuotes = input.quotes !== undefined ? input.quotes : parsedExisting.quotes;
   const mergedPoValueCurrency = input.poValueCurrency !== undefined ? input.poValueCurrency : parsedExisting.poValueCurrency;
   const mergedPoValue = input.poValue !== undefined ? input.poValue : parsedExisting.poValue;
+  const mergedAwardedTo = input.awardedTo !== undefined ? input.awardedTo : parsedExisting.awardedTo;
 
   const row: Record<string, unknown> = {};
   if (input.entity !== undefined) row.entity = input.entity;
@@ -295,7 +322,7 @@ export async function updateQuotationAPI(id: number, input: Partial<QuotationInp
   // Recompute percentage and savings using merged data
   if (input.quotes !== undefined || input.poValue !== undefined || input.poValueCurrency !== undefined) {
     const percentage = computePercentage({ quotes: mergedQuotes, poValue: mergedPoValue, poValueCurrency: mergedPoValueCurrency });
-    const savings = computeSavings({ quotes: mergedQuotes, poValueCurrency: mergedPoValueCurrency }, input.savings);
+    const savings = computeSavings({ quotes: mergedQuotes, poValueCurrency: mergedPoValueCurrency, awardedTo: mergedAwardedTo }, input.savings);
     row.percentage = percentage;
     row.savings = savings;
   }
@@ -358,4 +385,45 @@ export async function updateForwarderAPI(id: number, data: Omit<Forwarder, 'id'>
   if (error) throw error;
   if (!row) throw new Error('No data returned from update');
   return rowToForwarder(row as ForwarderRow);
+}
+
+// --- App Users API ---
+export async function fetchAppUsers(): Promise<AppUser[]> {
+  const { data, error } = await supabase
+    .from('app_users')
+    .select('*')
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(row => rowToAppUser(row as AppUserRow));
+}
+
+export async function createAppUserAPI(data: AppUserInput): Promise<AppUser> {
+  const { data: row, error } = await supabase
+    .from('app_users')
+    .insert(appUserInputToRow(data))
+    .select()
+    .single();
+  if (error) throw error;
+  if (!row) throw new Error('No data returned from create');
+  return rowToAppUser(row as AppUserRow);
+}
+
+export async function updateAppUserAPI(id: number, data: AppUserInput): Promise<AppUser> {
+  const { data: row, error } = await supabase
+    .from('app_users')
+    .update(appUserInputToRow(data))
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  if (!row) throw new Error('No data returned from update');
+  return rowToAppUser(row as AppUserRow);
+}
+
+export async function deleteAppUserAPI(id: number): Promise<void> {
+  const { error } = await supabase
+    .from('app_users')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
 }

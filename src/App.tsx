@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense, Component, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Search } from '@mui/icons-material';
+import { LockOutlined, Search } from '@mui/icons-material';
 import {
   Box, Button, Typography, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, AlertTitle,
@@ -9,8 +9,8 @@ import { useSnackbar } from './snackbar';
 import { useStore } from './store';
 import { useAuth, AuthProvider } from './auth';
 import { ThemeProvider } from './theme';
-import type { Quotation, QuotationInput, Filters, Forwarder } from './types';
-import { ADMIN_EMAIL, convertCurrency } from './types';
+import type { Quotation, QuotationInput, Filters, Forwarder, AppModule, AppUserInput } from './types';
+import { ADMIN_EMAIL, calculateAwardSavings } from './types';
 import { AppNav } from './components/AppNav';
 import { MobileNav } from './components/MobileNav';
 
@@ -20,6 +20,9 @@ const QuotationForm = lazy(() => import('./components/QuotationForm'));
 const SearchFilter = lazy(() => import('./components/SearchFilter'));
 const Forwarders = lazy(() => import('./components/Forwarders'));
 const LoginPage = lazy(() => import('./components/LoginPage'));
+const Users = lazy(() => import('./components/Users'));
+
+const ALL_MODULES: AppModule[] = ['dashboard', 'quotations', 'forwarders', 'users'];
 
 const APPROVED_STATUSES = new Set([
   'Assign to forwarder',
@@ -51,6 +54,18 @@ function PageLoader() {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
       <Box sx={{ width: 32, height: 32, border: '3px solid', borderColor: 'divider', borderTopColor: 'primary.main', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    </Box>
+  );
+}
+
+function AccessDenied() {
+  return (
+    <Box sx={{ textAlign: 'center', py: 8, px: 2.5, color: 'text.secondary' }}>
+      <LockOutlined sx={{ fontSize: 46, mb: 2, color: 'text.disabled' }} />
+      <Typography variant="h6" fontWeight={800} color="text.primary">Access restricted</Typography>
+      <Typography variant="body2" sx={{ mt: 0.75 }}>
+        Your account does not have access to this module.
+      </Typography>
     </Box>
   );
 }
@@ -148,7 +163,22 @@ function RejectionPrompt({ open, onSubmit, onCancel }: {
 function AppContent() {
   const { session, user, loading: authLoading } = useAuth();
   const snackbar = useSnackbar();
-  const { quotations, forwarders, addQuotation, updateQuotation, deleteQuotation, addForwarder, deleteForwarder, updateForwarder, loading, error: storeError } = useStore();
+  const {
+    quotations,
+    forwarders,
+    appUsers,
+    addQuotation,
+    updateQuotation,
+    deleteQuotation,
+    addForwarder,
+    deleteForwarder,
+    updateForwarder,
+    addAppUser,
+    updateAppUser,
+    deleteAppUser,
+    loading,
+    error: storeError,
+  } = useStore();
   const approvalBackfillDoneRef = useRef(false);
   const [showForm, setShowForm] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
@@ -185,6 +215,31 @@ function AppContent() {
     quotations.filter(q => q.status === 'Awaiting Approval').length,
     [quotations]
   );
+
+  const currentAccess = useMemo(() => {
+    if (user?.email === ADMIN_EMAIL) {
+      return { role: 'Admin', modules: ALL_MODULES, active: true };
+    }
+
+    const profile = appUsers.find(item =>
+      item.email.toLowerCase() === (user?.email ?? '').toLowerCase()
+    );
+
+    if (!profile) return { role: 'Sales', modules: [] as AppModule[], active: false };
+
+    return {
+      role: profile.role,
+      modules: profile.active ? profile.modules : [],
+      active: profile.active,
+    };
+  }, [appUsers, user]);
+
+  const canAccess = useCallback((module: AppModule) =>
+    currentAccess.active && currentAccess.modules.includes(module),
+    [currentAccess]
+  );
+
+  const canManageUsers = canAccess('users') && currentAccess.role === 'Admin';
 
   useEffect(() => {
     if (!session || loading || approvalBackfillDoneRef.current || user?.email !== ADMIN_EMAIL) return;
@@ -323,21 +378,63 @@ function AppContent() {
     }
   }, [forwarders, updateForwarder, snackbar]);
 
+  const handleAddAppUser = useCallback(async (data: AppUserInput) => {
+    if (!canManageUsers) {
+      snackbar.error('Only admins can manage users.');
+      throw new Error('Access denied');
+    }
+
+    const duplicate = appUsers.some(item => item.email.toLowerCase() === data.email.trim().toLowerCase());
+    if (duplicate) {
+      snackbar.warning(`A user with "${data.email.trim()}" already exists.`);
+      throw new Error('Duplicate user');
+    }
+
+    await addAppUser(data);
+    snackbar.success(`User "${data.name}" created.`);
+  }, [addAppUser, appUsers, canManageUsers, snackbar]);
+
+  const handleEditAppUser = useCallback(async (id: number, data: AppUserInput) => {
+    if (!canManageUsers) {
+      snackbar.error('Only admins can manage users.');
+      throw new Error('Access denied');
+    }
+
+    const duplicate = appUsers.some(item =>
+      item.id !== id && item.email.toLowerCase() === data.email.trim().toLowerCase()
+    );
+    if (duplicate) {
+      snackbar.warning(`A user with "${data.email.trim()}" already exists.`);
+      throw new Error('Duplicate user');
+    }
+
+    await updateAppUser(id, data);
+    snackbar.success(`User "${data.name}" updated.`);
+  }, [appUsers, canManageUsers, snackbar, updateAppUser]);
+
+  const handleDeleteAppUser = useCallback(async (id: number) => {
+    if (!canManageUsers) {
+      snackbar.error('Only admins can manage users.');
+      return;
+    }
+
+    const target = appUsers.find(item => item.id === id);
+    if (target?.email.toLowerCase() === user?.email?.toLowerCase()) {
+      snackbar.warning('You cannot delete your own admin profile while signed in.');
+      return;
+    }
+
+    await deleteAppUser(id);
+    snackbar.success('User deleted.');
+  }, [appUsers, canManageUsers, deleteAppUser, snackbar, user]);
+
   const handleAward = useCallback(async (id: number, forwarder: string) => {
     try {
       const q = quotations.find(item => item.id === id);
       let savingsUpdate = {};
       if (q && q.quotes.length >= 2) {
-        const poCurrency = q.poValueCurrency || 'AED';
-        const amounts = q.quotes.filter(qu => qu.quotedAmount > 0).map(qu => ({
-          forwarder: qu.forwarder,
-          amount: convertCurrency(qu.quotedAmount, qu.currency || 'AED', poCurrency),
-        }));
-        if (amounts.length >= 2) {
-          const lowestAmt = Math.min(...amounts.map(a => a.amount));
-          const awardedAmt = amounts.find(a => a.forwarder === forwarder)?.amount ?? lowestAmt;
-          savingsUpdate = { savings: Math.round((lowestAmt - awardedAmt) * 100) / 100 };
-        }
+        const savings = calculateAwardSavings(q.quotes, q.poValueCurrency || 'AED', forwarder);
+        if (savings !== null) savingsUpdate = { savings };
       }
       await updateQuotation(id, { awardedTo: forwarder, ...savingsUpdate });
       snackbar.success(`Quotation awarded to ${forwarder}!`);
@@ -424,6 +521,7 @@ function AppContent() {
         onAdd={handleAdd}
         displayCurrency={displayCurrency}
         onCurrencyChange={setDisplayCurrency}
+        modules={currentAccess.modules}
       />
 
       {storeError && (
@@ -444,36 +542,68 @@ function AppContent() {
       }}>
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/" element={<ErrorBoundary key="dashboard"><Dashboard quotations={quotations} forwarders={forwarders} displayCurrency={displayCurrency} /></ErrorBoundary>} />
+            <Route
+              path="/"
+              element={
+                canAccess('dashboard')
+                  ? <ErrorBoundary key="dashboard"><Dashboard quotations={quotations} forwarders={forwarders} displayCurrency={displayCurrency} /></ErrorBoundary>
+                  : <AccessDenied />
+              }
+            />
             <Route
               path="/quotations"
               element={
-                <ErrorBoundary key="quotations">
-                  <QuotationsPage
-                    filters={filters}
-                    onFilterChange={setFilters}
-                    filteredQuotations={filteredQuotations}
-                    quotations={quotations}
-                    forwarders={forwarders}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onAward={handleAward}
-                    onStatusChange={handleStatusChange}
-                  />
-                </ErrorBoundary>
+                canAccess('quotations')
+                  ? (
+                    <ErrorBoundary key="quotations">
+                      <QuotationsPage
+                        filters={filters}
+                        onFilterChange={setFilters}
+                        filteredQuotations={filteredQuotations}
+                        quotations={quotations}
+                        forwarders={forwarders}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onAward={handleAward}
+                        onStatusChange={handleStatusChange}
+                      />
+                    </ErrorBoundary>
+                  )
+                  : <AccessDenied />
               }
             />
             <Route
               path="/forwarders"
               element={
-                <ErrorBoundary key="forwarders">
-                  <Forwarders
-                    forwarders={forwarders}
-                    onAdd={handleAddForwarder}
-                    onEdit={handleEditForwarder}
-                    onDelete={handleDeleteForwarder}
-                  />
-                </ErrorBoundary>
+                canAccess('forwarders')
+                  ? (
+                    <ErrorBoundary key="forwarders">
+                      <Forwarders
+                        forwarders={forwarders}
+                        onAdd={handleAddForwarder}
+                        onEdit={handleEditForwarder}
+                        onDelete={handleDeleteForwarder}
+                      />
+                    </ErrorBoundary>
+                  )
+                  : <AccessDenied />
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                canManageUsers
+                  ? (
+                    <ErrorBoundary key="users">
+                      <Users
+                        users={appUsers}
+                        onAdd={handleAddAppUser}
+                        onEdit={handleEditAppUser}
+                        onDelete={handleDeleteAppUser}
+                      />
+                    </ErrorBoundary>
+                  )
+                  : <AccessDenied />
               }
             />
             <Route path="*" element={
@@ -486,7 +616,7 @@ function AppContent() {
         </Suspense>
       </Box>
 
-      <MobileNav pendingApprovalsCount={pendingApprovalsCount} onAdd={handleAdd} />
+      <MobileNav pendingApprovalsCount={pendingApprovalsCount} onAdd={handleAdd} modules={currentAccess.modules} />
 
       {showForm && (
         <Suspense fallback={<PageLoader />}>

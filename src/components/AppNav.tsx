@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { CURRENCY_LIST } from '../types';
+import type { AppModule } from '../types';
 import { useTheme } from '../theme';
 import { useAuth } from '../auth';
 import {
@@ -8,19 +9,21 @@ import {
 } from '@mui/material';
 import {
   Dashboard, Description, LocalShipping, Add,
-  DarkMode, LightMode, Logout,
+  DarkMode, LightMode, Logout, ManageAccounts,
 } from '@mui/icons-material';
 
 interface AppNavProps {
   onAdd: () => void;
   displayCurrency: string;
   onCurrencyChange: (currency: string) => void;
+  modules: AppModule[];
 }
 
 const navLinks = [
-  { to: '/', label: 'Dashboard', icon: Dashboard, color: '#31748f', bg: 'rgba(49,116,143,0.10)' },
-  { to: '/quotations', label: 'Quotations', icon: Description, color: '#0f766e', bg: 'rgba(15,118,110,0.10)' },
-  { to: '/forwarders', label: 'Forwarders', icon: LocalShipping, color: '#b7791f', bg: 'rgba(183,121,31,0.12)' },
+  { to: '/', label: 'Dashboard', icon: Dashboard, color: '#31748f', bg: 'rgba(49,116,143,0.10)', module: 'dashboard' as const },
+  { to: '/quotations', label: 'Quotations', icon: Description, color: '#0f766e', bg: 'rgba(15,118,110,0.10)', module: 'quotations' as const },
+  { to: '/forwarders', label: 'Forwarders', icon: LocalShipping, color: '#b7791f', bg: 'rgba(183,121,31,0.12)', module: 'forwarders' as const },
+  { to: '/users', label: 'Users', icon: ManageAccounts, color: '#7c3aed', bg: 'rgba(124,58,237,0.10)', module: 'users' as const },
 ];
 
 const utilityButtonSx = {
@@ -48,11 +51,12 @@ function displayUserName(user: { email?: string; user_metadata?: Record<string, 
     : 'User';
 }
 
-export function AppNav({ onAdd, displayCurrency, onCurrencyChange }: AppNavProps) {
+export function AppNav({ onAdd, displayCurrency, onCurrencyChange, modules }: AppNavProps) {
   const { toggleTheme, theme } = useTheme();
   const { user, signOut } = useAuth();
   const location = useLocation();
   const userName = displayUserName(user);
+  const visibleLinks = navLinks.filter(link => modules.includes(link.module));
 
   return (
     <AppBar position="sticky" elevation={0} sx={{
@@ -113,7 +117,7 @@ export function AppNav({ onAdd, displayCurrency, onCurrencyChange }: AppNavProps
             maxWidth: '100%',
             overflow: 'hidden',
           }}>
-          {navLinks.map(link => {
+          {visibleLinks.map(link => {
             const isActive = location.pathname === link.to;
             return (
               <Button

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Quotation, QuotationInput, Forwarder } from './types';
+import type { Quotation, QuotationInput, Forwarder, AppUser, AppUserInput } from './types';
 import {
   fetchQuotations,
   createQuotation,
@@ -9,11 +9,16 @@ import {
   createForwarderAPI,
   deleteForwarderAPI,
   updateForwarderAPI,
+  fetchAppUsers,
+  createAppUserAPI,
+  updateAppUserAPI,
+  deleteAppUserAPI,
 } from './api';
 
 export function useStore() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [forwarders, setForwarders] = useState<Forwarder[]>([]);
+  const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,13 +26,18 @@ export function useStore() {
     const controller = new AbortController();
     (async () => {
       try {
-        const [qData, fData] = await Promise.all([
+        const [qData, fData, uData] = await Promise.all([
           fetchQuotations(),
           fetchForwarders(),
+          fetchAppUsers().catch((err) => {
+            console.warn('App users table unavailable:', err);
+            return [] as AppUser[];
+          }),
         ]);
         if (!controller.signal.aborted) {
           setQuotations(qData);
           setForwarders(fData);
+          setAppUsers(uData);
         }
       } catch (err) {
         if (!controller.signal.aborted) {
@@ -143,15 +153,71 @@ export function useStore() {
     }
   }, []);
 
+  const addAppUser = useCallback(async (input: AppUserInput) => {
+    const optimistic: AppUser = {
+      id: Date.now(),
+      ...input,
+      email: input.email.toLowerCase().trim(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setAppUsers(prev => [...prev, optimistic].sort((a, b) => a.name.localeCompare(b.name)));
+    try {
+      const saved = await createAppUserAPI(input);
+      setAppUsers(prev => prev.map(u => u.id === optimistic.id ? saved : u).sort((a, b) => a.name.localeCompare(b.name)));
+    } catch (err) {
+      setAppUsers(prev => prev.filter(u => u.id !== optimistic.id));
+      throw err;
+    }
+  }, []);
+
+  const updateAppUser = useCallback(async (id: number, input: AppUserInput) => {
+    let previousUser: AppUser | undefined;
+    setAppUsers(prev => {
+      previousUser = prev.find(u => u.id === id);
+      return prev.map(u => u.id === id ? { ...u, ...input, email: input.email.toLowerCase().trim(), updatedAt: new Date().toISOString() } : u)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    });
+    try {
+      const saved = await updateAppUserAPI(id, input);
+      setAppUsers(prev => prev.map(u => u.id === id ? saved : u).sort((a, b) => a.name.localeCompare(b.name)));
+    } catch (err) {
+      if (previousUser) {
+        setAppUsers(prev => prev.map(u => u.id === id ? previousUser! : u));
+      }
+      throw err;
+    }
+  }, []);
+
+  const deleteAppUser = useCallback(async (id: number) => {
+    let deletedUser: AppUser | undefined;
+    setAppUsers(prev => {
+      deletedUser = prev.find(u => u.id === id);
+      return prev.filter(u => u.id !== id);
+    });
+    try {
+      await deleteAppUserAPI(id);
+    } catch (err) {
+      if (deletedUser) {
+        setAppUsers(prev => [...prev, deletedUser!].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      throw err;
+    }
+  }, []);
+
   return {
     quotations,
     forwarders,
+    appUsers,
     addQuotation,
     updateQuotation,
     deleteQuotation,
     addForwarder,
     deleteForwarder,
     updateForwarder,
+    addAppUser,
+    updateAppUser,
+    deleteAppUser,
     loading,
     error,
   };
