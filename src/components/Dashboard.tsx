@@ -209,64 +209,90 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
         })}
       </Grid>
 
-      <Box sx={{ height: 1, bgcolor: 'divider', mx: 0 }} />
-
       <Grid container spacing={2.5}>
         <Grid item xs={12} lg={6}>
-          <Card sx={{ borderTop: '3px solid', borderTopColor: '#6366f1' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
-                <Box sx={{
-                  width: 32, height: 32, borderRadius: 1,
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-                }}>
-                  <LocalShippingOutlined sx={{ fontSize: 16 }} />
+          <Card sx={{ border: '1px solid', borderColor: 'divider', boxShadow: '0 18px 36px -32px rgba(23,32,31,0.55)' }}>
+            <CardContent sx={{ p: 2.25 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{
+                    width: 30, height: 30, borderRadius: 1,
+                    bgcolor: 'rgba(99,102,241,0.10)',
+                    border: '1px solid rgba(99,102,241,0.18)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f46e5',
+                  }}>
+                    <LocalShippingOutlined sx={{ fontSize: 16 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontSize: '0.98rem' }}>Forwarder Performance</Typography>
+                    <Typography variant="caption" color="text.secondary">Awarded freight value by forwarder</Typography>
+                  </Box>
                 </Box>
-                <Typography variant="h6" sx={{ fontSize: '1rem' }}>Forwarder Performance</Typography>
               </Box>
               {forwarderStats.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>No data yet</Typography>
               ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                   {forwarderStats.map((f, i) => {
                     const color = FORWARDER_COLORS[i % FORWARDER_COLORS.length];
+                    const pct = maxForwarderValue > 0 ? Math.round((f.totalValue / maxForwarderValue) * 100) : 0;
                     return (
                       <Box key={f.forwarder} sx={{
-                        borderRadius: 1.5, border: '1px solid', borderColor: 'divider',
-                        bgcolor: 'action.hover', p: 1.5, transition: 'all 0.2s',
-                        '&:hover': { borderColor: color, boxShadow: `0 0 0 1px ${color}40` },
+                        py: 1.25,
+                        borderTop: i === 0 ? 0 : '1px solid',
+                        borderColor: 'divider',
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) 150px' },
+                        gap: { xs: 0.75, sm: 2 },
+                        alignItems: 'center',
                       }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.85 }}>
                             <Box sx={{
-                              width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0,
-                            }} />
-                            <Typography variant="body2" fontWeight={600} noWrap>{f.forwarder}</Typography>
+                              width: 22, height: 22, borderRadius: 0.75,
+                              bgcolor: `${color}14`,
+                              color,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '0.72rem', fontWeight: 850,
+                              flexShrink: 0,
+                            }}>
+                              {i + 1}
+                            </Box>
+                            <Typography variant="body2" fontWeight={750} noWrap>{f.forwarder}</Typography>
                           </Box>
-                          <Typography variant="caption" sx={{ color: color, fontWeight: 700 }}>
-                            {f.count} award{f.count !== 1 ? 's' : ''}
-                          </Typography>
-                        </Box>
-                        <LinearProgress
-                          variant="determinate"
-                          value={Math.min((f.totalValue / maxForwarderValue) * 100, 100)}
-                          sx={{
-                            backgroundColor: `${color}20`,
-                            '& .MuiLinearProgress-bar': {
-                              backgroundColor: color,
-                              backgroundImage: `linear-gradient(90deg, ${color}, ${color}cc)`,
+                          <LinearProgress
+                            variant="determinate"
+                            value={Math.min(pct, 100)}
+                            sx={{
+                              height: 5,
                               borderRadius: 4,
-                            },
-                          }}
-                        />
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatCurrency(f.totalValue)} {displayCurrency}
-                          </Typography>
-                          <Typography variant="caption" fontWeight={700} color={color}>
-                            {maxForwarderValue > 0 ? Math.round((f.totalValue / maxForwarderValue) * 100) : 0}%
-                          </Typography>
+                              backgroundColor: `${color}14`,
+                              '& .MuiLinearProgress-bar': {
+                                backgroundColor: color,
+                                borderRadius: 4,
+                              },
+                            }}
+                          />
+                        </Box>
+                        <Box sx={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr auto',
+                          gap: 1,
+                          alignItems: 'center',
+                          justifySelf: { sm: 'stretch' },
+                        }}>
+                          <Box>
+                            <Typography variant="body2" fontWeight={800} sx={{ fontFamily: 'monospace', lineHeight: 1.2 }}>
+                              {formatCurrency(f.totalValue)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">{displayCurrency}</Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Typography variant="body2" fontWeight={800} sx={{ color, lineHeight: 1.2 }}>{pct}%</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {f.count} award{f.count !== 1 ? 's' : ''}
+                            </Typography>
+                          </Box>
                         </Box>
                       </Box>
                     );
@@ -278,63 +304,84 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
         </Grid>
 
         <Grid item xs={12} lg={6}>
-          <Card sx={{ borderTop: '3px solid', borderTopColor: '#7c3aed' }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+          <Card sx={{ border: '1px solid', borderColor: 'divider', boxShadow: '0 18px 36px -32px rgba(23,32,31,0.55)' }}>
+            <CardContent sx={{ p: 2.25 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mb: 2 }}>
                 <Box sx={{
-                  width: 32, height: 32, borderRadius: 1,
-                  background: 'linear-gradient(135deg, #7c3aed, #a78bfa)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+                  width: 30, height: 30, borderRadius: 1,
+                  bgcolor: 'rgba(124,58,237,0.10)',
+                  border: '1px solid rgba(124,58,237,0.18)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed',
                 }}>
                   <DescriptionOutlined sx={{ fontSize: 16 }} />
                 </Box>
-                <Typography variant="h6" sx={{ fontSize: '1rem' }}>Entity Breakdown</Typography>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="h6" sx={{ fontSize: '0.98rem' }}>Entity Breakdown</Typography>
+                  <Typography variant="caption" color="text.secondary">PO value, freight value, and freight ratio</Typography>
+                </Box>
               </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {entityStats.map(es => {
                   const ec = entityColor(es.entity);
                   return (
-                    <Card key={es.entity} variant="outlined" sx={{
-                      borderRadius: 1.5, overflow: 'hidden',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 8px 24px rgba(0,0,0,0.08)' },
+                    <Box key={es.entity} sx={{
+                      py: 1.4,
+                      borderTop: es.entity === entityStats[0]?.entity ? 0 : '1px solid',
+                      borderColor: 'divider',
                     }}>
-                      <Box sx={{ height: 6, background: ec.gradient }} />
-                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{
-                              width: 10, height: 10, borderRadius: '50%', bgcolor: ec.main, flexShrink: 0,
-                            }} />
-                            <Typography variant="subtitle2" fontWeight={700}>{es.entity}</Typography>
+                      <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: '140px 1fr' },
+                        gap: { xs: 1, sm: 2 },
+                        alignItems: 'center',
+                      }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                          <Box sx={{
+                            width: 9, height: 34, borderRadius: 1,
+                            background: ec.gradient,
+                            flexShrink: 0,
+                          }} />
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="subtitle2" fontWeight={850} sx={{ letterSpacing: '0.03em' }}>{es.entity}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {es.count} quotation{es.count !== 1 ? 's' : ''}
+                            </Typography>
                           </Box>
-                          <Chip label={`${es.count} quotation${es.count !== 1 ? 's' : ''}`} size="small"
-                            sx={{ fontWeight: 600, fontSize: '0.6875rem', bgcolor: `${ec.main}15`, color: ec.main }} />
                         </Box>
-                        <Grid container spacing={1.5}>
-                          <Grid item xs={6}>
-                            <Typography variant="caption" color="text.secondary" fontWeight={700}>PO Value</Typography>
-                            <Typography variant="body2" fontWeight={700} sx={{ fontFamily: 'monospace' }}>
-                              {formatCurrency(es.totalValue)}
-                            </Typography>
-                          </Grid>
-                          <Grid item xs={6}>
-                            <Typography variant="caption" color="text.secondary" fontWeight={700}>Freight</Typography>
-                            <Typography variant="body2" fontWeight={700} sx={{ fontFamily: 'monospace' }}>
-                              {formatCurrency(es.freight)}
-                            </Typography>
-                          </Grid>
-                        </Grid>
-                        <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                            <Typography variant="caption" color="text.secondary">Freight %</Typography>
-                            <Typography variant="caption" fontWeight={700} sx={{ color: ec.main }}>{es.freightPct}%</Typography>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Box sx={{
+                            display: 'grid',
+                            gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 72px' },
+                            gap: 1.5,
+                            alignItems: 'end',
+                            mb: 0.85,
+                          }}>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" fontWeight={750}>PO Value</Typography>
+                              <Typography variant="body2" fontWeight={800} sx={{ fontFamily: 'monospace' }}>
+                                {formatCurrency(es.totalValue)}
+                              </Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" fontWeight={750}>Freight</Typography>
+                              <Typography variant="body2" fontWeight={800} sx={{ fontFamily: 'monospace' }}>
+                                {formatCurrency(es.freight)}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={750}>Freight</Typography>
+                              <Typography variant="body2" fontWeight={850} sx={{ color: ec.main }}>
+                                {es.freightPct}%
+                              </Typography>
+                            </Box>
                           </Box>
                           <LinearProgress
                             variant="determinate"
                             value={Math.min(parseFloat(es.freightPct), 100)}
                             sx={{
-                              backgroundColor: `${ec.main}20`,
+                              height: 5,
+                              borderRadius: 4,
+                              backgroundColor: `${ec.main}14`,
                               '& .MuiLinearProgress-bar': {
                                 background: ec.gradient,
                                 borderRadius: 4,
@@ -342,8 +389,8 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
                             }}
                           />
                         </Box>
-                      </CardContent>
-                    </Card>
+                      </Box>
+                    </Box>
                   );
                 })}
               </Box>

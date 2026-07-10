@@ -67,7 +67,7 @@ describe('Dashboard', () => {
   it('renders total POs count', () => {
     render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
     expect(screen.getByText('Total POs')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders savings card', () => {
