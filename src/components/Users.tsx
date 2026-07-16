@@ -90,6 +90,10 @@ export default function Users({ users, onAdd, onEdit, onDelete }: UsersProps) {
       setError('Assign at least one module.');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError('Please enter a valid email address.');
+      return;
+    }
 
     setSaving(true);
     setError('');

@@ -1,16 +1,63 @@
-# React + Vite
+# Quotation Management System (QMS)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + TypeScript SPA for managing logistics quotations across UAE, Qatar, and Oman. Built with Vite, Material UI, Supabase backend, and deployed on Vercel as a PWA.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Dashboard** — Analytics with stats cards, forwarder performance, entity breakdown
+- **Quotation Management** — Create, edit, approve/reject quotations with multi-forwarder quotes
+- **Forwarder Management** — CRUD operations for logistics partner contacts
+- **User Management** — Role-based access control (Admin, Logistics, Sales) with module permissions
+- **Excel Export** — Export quotations to Excel for reporting
+- **PWA** — Installable progressive web app with offline caching
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** React 19, TypeScript, Vite 8, Material UI 5
+- **Backend:** Supabase (PostgreSQL + Auth + RLS)
+- **Deployment:** Vercel with security headers and SPA routing
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your Supabase credentials
+
+# Start development server
+npm run dev
+
+# Run tests
+npm test
+
+# Build for production
+npm run build
+```
+
+## Database Setup
+
+Run the SQL migrations in Supabase SQL editor in order:
+
+1. `supabase_app_users.sql` — Users table, roles, and RLS policies
+2. `supabase_rls_quotations_forwarders.sql` — RLS policies for quotations and forwarders tables
+
+## Security
+
+- Row Level Security (RLS) enforced on all database tables
+- Server-side authorization via Supabase RLS policies
+- Client-side access control for UI hints only (not security-critical)
+- Content Security Policy configured in `vercel.json`
+- Auth tokens stored in httpOnly cookies (not localStorage)
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite dev server |
+| `npm run build` | Type-check and build for production |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run tests once |
+| `npm run test:watch` | Run tests in watch mode |

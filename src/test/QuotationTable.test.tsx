@@ -70,6 +70,7 @@ describe('QuotationTable', () => {
   const mockOnDelete = vi.fn();
   const mockOnAward = vi.fn();
   const mockOnStatusChange = vi.fn();
+  const mockOnExcludeToggle = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -84,6 +85,7 @@ describe('QuotationTable', () => {
         onDelete={mockOnDelete}
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
+        onExcludeToggle={mockOnExcludeToggle}
       />
     );
     expect(screen.getByText('Entity')).toBeInTheDocument();
@@ -100,6 +102,7 @@ describe('QuotationTable', () => {
         onDelete={mockOnDelete}
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
+        onExcludeToggle={mockOnExcludeToggle}
       />
     );
     expect(screen.getByRole('table')).toBeInTheDocument();
@@ -116,6 +119,7 @@ describe('QuotationTable', () => {
         onDelete={mockOnDelete}
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
+        onExcludeToggle={mockOnExcludeToggle}
       />
     );
     expect(screen.getByText('No quotations found')).toBeInTheDocument();
@@ -131,6 +135,7 @@ describe('QuotationTable', () => {
         onDelete={mockOnDelete}
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
+        onExcludeToggle={mockOnExcludeToggle}
       />
     );
     const row = screen.getByRole('row', { name: /Test Supplier/ });
@@ -151,6 +156,7 @@ describe('QuotationTable', () => {
         onDelete={mockOnDelete}
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
+        onExcludeToggle={mockOnExcludeToggle}
       />
     );
     const row = screen.getByRole('row', { name: /Test Supplier/ });
@@ -171,6 +177,7 @@ describe('QuotationTable', () => {
         onDelete={mockOnDelete}
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
+        onExcludeToggle={mockOnExcludeToggle}
       />
     );
     const row = screen.getByRole('row', { name: /Test Supplier/ });
@@ -188,6 +195,7 @@ describe('QuotationTable', () => {
         onDelete={mockOnDelete}
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
+        onExcludeToggle={mockOnExcludeToggle}
       />
     );
     expect(screen.getAllByText('Sent for quotation').length).toBeGreaterThanOrEqual(1);
@@ -202,6 +210,7 @@ describe('QuotationTable', () => {
         onDelete={mockOnDelete}
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
+        onExcludeToggle={mockOnExcludeToggle}
         searchActive
       />
     );

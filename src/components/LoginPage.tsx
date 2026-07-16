@@ -32,6 +32,7 @@ const loginFieldSx: SxProps<Theme> = {
   '& input': {
     fontWeight: 650,
     letterSpacing: 0,
+    color: theme => theme.palette.mode === 'light' ? 'rgba(0,0,0,0.87)' : 'rgba(255,255,255,0.87)',
   },
   '& input:-webkit-autofill, & input:-webkit-autofill:hover, & input:-webkit-autofill:focus, & input:-webkit-autofill:active': {
     WebkitTextFillColor: 'currentColor',
@@ -57,6 +58,9 @@ function LoginField({ label, children }: { label: string; children: React.ReactN
   );
 }
 
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 60_000;
+
 export default function LoginPage() {
   const { signIn } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -65,18 +69,38 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (Date.now() < lockedUntil) {
+      const remaining = Math.ceil((lockedUntil - Date.now()) / 1000);
+      setError(`Too many failed attempts. Please try again in ${remaining}s.`);
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await signIn(email, password);
       if (result.error) {
-        const message = result.error.toLowerCase().includes('invalid login credentials')
-          ? 'Invalid email or password. Make sure this user exists in Supabase Authentication, then add the same email in app_users for access.'
-          : result.error;
-        setError(message);
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+        if (newAttempts >= MAX_ATTEMPTS) {
+          setLockedUntil(Date.now() + LOCKOUT_DURATION_MS);
+          setAttempts(0);
+          setError('Too many failed attempts. Please try again in 60 seconds.');
+        } else {
+          const remaining = MAX_ATTEMPTS - newAttempts;
+          const message = result.error.toLowerCase().includes('invalid login credentials')
+            ? `Invalid email or password. ${remaining > 0 ? `${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.` : ''}`
+            : result.error;
+          setError(message);
+        }
+      } else {
+        setAttempts(0);
       }
     } catch {
       setError('An unexpected error occurred. Please try again.');

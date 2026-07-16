@@ -10,7 +10,7 @@ import {
   Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Chip, Tabs, Tab, Dialog, DialogTitle, DialogContent,
   Select, MenuItem, FormControl, Card, CardContent, Typography,
-  useMediaQuery, useTheme,
+  useMediaQuery, useTheme, Switch, FormControlLabel, Tooltip,
 } from '@mui/material';
 import {
   Description, Schedule, Close as XCircle, Search, Download,
@@ -159,10 +159,11 @@ interface QuotationTableProps {
   onDelete: (id: number) => void;
   onAward: (id: number, forwarder: string) => void;
   onStatusChange: (id: number, status: string) => void;
+  onExcludeToggle: (id: number, excluded: boolean) => void;
   searchActive?: boolean;
 }
 
-export default function QuotationTable({ quotations, forwarders, onEdit, onDelete, onAward, onStatusChange, searchActive = false }: QuotationTableProps) {
+export default function QuotationTable({ quotations, forwarders, onEdit, onDelete, onAward, onStatusChange, onExcludeToggle, searchActive = false }: QuotationTableProps) {
   const [detailQuotation, setDetailQuotation] = useState<Quotation | null>(null);
   const { user } = useAuth();
   const isAdmin = user?.email === ADMIN_EMAIL;
@@ -229,8 +230,8 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Quotations');
       XLSX.writeFile(wb, `Quotations_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    } catch (err) {
-      console.error('Excel export failed:', err);
+    } catch {
+      // Excel export failed silently
     }
   }, [displayedQuotations, forwarders]);
 
@@ -362,7 +363,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                     <TableRow
                       key={q.id}
                       hover
-                      sx={{ cursor: 'pointer', transition: 'all 0.15s', '&:hover td': { bgcolor: `${entityColor}08` } }}
+                      sx={{ cursor: 'pointer', transition: 'all 0.15s', '&:hover td': { bgcolor: `${entityColor}08` }, opacity: q.excludedFromPO ? 0.55 : 1 }}
                       onClick={() => setDetailQuotation(q)}
                     >
                       <TableCell>
@@ -372,10 +373,17 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                         <Chip label={q.entity} size="small"
                           sx={{ fontWeight: 700, fontSize: '0.6875rem', bgcolor: `${entityColor}15`, color: entityColor }} />
                       </TableCell>
-                      <TableCell><Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 140 }}>{q.supplierName}</Typography></TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                          <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 140 }}>{q.supplierName}</Typography>
+                          {q.excludedFromPO && (
+                            <Chip label="Excl." size="small" color="warning" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, flexShrink: 0 }} />
+                          )}
+                        </Box>
+                      </TableCell>
                       <TableCell><Typography variant="body2" fontFamily="monospace" color="text.secondary">{q.supplierPO}</Typography></TableCell>
                       <TableCell align="right">
-                        <Typography variant="body2" fontWeight={600} fontFamily="monospace">
+                        <Typography variant="body2" fontWeight={600} fontFamily="monospace" sx={{ textDecoration: q.excludedFromPO ? 'line-through' : 'none', color: q.excludedFromPO ? 'text.disabled' : 'text.primary' }}>
                           {formatCurrency(q.poValue)} <Typography component="span" variant="caption" color="text.secondary">{q.poValueCurrency || 'AED'}</Typography>
                         </Typography>
                       </TableCell>
@@ -486,13 +494,19 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                 <Card key={q.id} sx={{
                   cursor: 'pointer', borderRadius: 1.5, overflow: 'hidden',
                   transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-1px)' },
+                  opacity: q.excludedFromPO ? 0.55 : 1,
                 }}
                   onClick={() => setDetailQuotation(q)}>
                   <Box sx={{ height: 4, background: `linear-gradient(90deg, ${entityColor}, ${entityColor}88)` }} />
                   <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                      <Chip label={q.entity} size="small"
-                        sx={{ fontWeight: 700, fontSize: '0.6875rem', bgcolor: `${entityColor}15`, color: entityColor }} />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Chip label={q.entity} size="small"
+                          sx={{ fontWeight: 700, fontSize: '0.6875rem', bgcolor: `${entityColor}15`, color: entityColor }} />
+                        {q.excludedFromPO && (
+                          <Chip label="Excl." size="small" color="warning" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700 }} />
+                        )}
+                      </Box>
                       {q.status === 'Awaiting Approval' && isAdmin ? (
                         <Box sx={{ display: 'flex', gap: 0.5 }} onClick={e => e.stopPropagation()}>
                           <Button size="small" variant="contained" color="success" sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem', px: 1 }}
@@ -683,6 +697,31 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                 }}>
                   <PersonStamp label="Created by" name={dq.createdBy} date={dq.createdAt} />
                   <PersonStamp label="Approved by" name={dq.approvedBy} date={dq.approvedAt} />
+                </Box>
+
+                <Box sx={{ mb: 2 }}>
+                  <Tooltip title={dq.excludedFromPO ? 'Include this quotation in dashboard PO calculations' : 'Exclude this quotation from dashboard PO calculations'}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={dq.excludedFromPO ?? false}
+                          onChange={(e) => onExcludeToggle(dq.id, e.target.checked)}
+                          size="small"
+                          color="warning"
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" fontWeight={600}>
+                          Exclude from PO calculation
+                        </Typography>
+                      }
+                    />
+                  </Tooltip>
+                  {dq.excludedFromPO && (
+                    <Typography variant="caption" color="warning.main" display="block" sx={{ ml: 4.5 }}>
+                      This quotation will not appear in dashboard PO and freight stats.
+                    </Typography>
+                  )}
                 </Box>
 
                 <Box sx={{

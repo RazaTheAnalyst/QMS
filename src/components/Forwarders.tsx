@@ -34,6 +34,12 @@ export default function Forwarders({ forwarders, onAdd, onEdit, onDelete }: Forw
   const handleAddSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return;
+    }
+    if (phone.trim() && phone.trim().length < 7) {
+      return;
+    }
     setSubmitting(true);
     try {
       await onAdd({ name: name.trim(), contactPerson: contactPerson.trim(), email: email.trim(), phone: phone.trim() });
@@ -44,6 +50,12 @@ export default function Forwarders({ forwarders, onAdd, onEdit, onDelete }: Forw
   const handleEditSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || editingId === null) return;
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return;
+    }
+    if (phone.trim() && phone.trim().length < 7) {
+      return;
+    }
     setSubmitting(true);
     try {
       await onEdit(editingId, { name: name.trim(), contactPerson: contactPerson.trim(), email: email.trim(), phone: phone.trim() });

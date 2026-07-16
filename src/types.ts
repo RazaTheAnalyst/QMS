@@ -53,6 +53,7 @@ export interface Quotation {
   createdAt?: string;
   approvedBy?: string;
   approvedAt?: string;
+  excludedFromPO?: boolean;
 }
 
 export type QuotationInput = Omit<Quotation, 'id' | 'percentage'>;
@@ -65,6 +66,9 @@ export interface Filters {
 
 export const ENTITIES = ['UAE', 'Qatar', 'Oman'] as const;
 
+// Server-side authorization is enforced via Supabase RLS policies.
+// This constant is kept for cosmetic UI hints only (e.g., showing/hiding tabs).
+// Do NOT rely on this for security decisions.
 export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@netceedmea.com';
 
 export const USER_ROLES: UserRole[] = ['Admin', 'Logistics', 'Sales'];
@@ -90,7 +94,7 @@ export const STATUS_LIST = [
 
 export const CURRENCY_LIST = ['AED', 'USD', 'QAR', 'OMR', 'GBP', 'SAR', 'EUR'] as const;
 
-export const EXCHANGE_RATES: Record<string, number> = {
+const EXCHANGE_RATES: Record<string, number> = {
   AED: 1.0,
   USD: 0.2723,     // 1 AED = 0.2723 USD
   QAR: 0.9912,     // 1 AED = 0.9912 QAR

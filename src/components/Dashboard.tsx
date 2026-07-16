@@ -4,6 +4,7 @@ import { ENTITIES, calculateAwardSavings, convertCurrency } from '../types';
 import { ADMIN_EMAIL } from '../types';
 import type { Quotation, Forwarder } from '../types';
 import { useAuth } from '../auth';
+import { useTheme } from '../theme';
 import { formatCurrency } from '@/lib/utils';
 import {
   Box, Card, CardContent, Typography, Grid, LinearProgress, Chip,
@@ -29,29 +30,34 @@ function entityColor(entity: string): { main: string; gradient: string } {
   return (ENTITY_COLORS[entity] || ENTITY_COLORS['UAE'])!;
 }
 
-const STAT_CARD_STYLES: Record<string, { gradient: string; accent: string; icon: React.ReactNode }> = {
+const STAT_CARD_STYLES: Record<string, { lightGradient: string; darkGradient: string; accent: string; icon: React.ReactNode }> = {
   pos: {
-    gradient: 'linear-gradient(135deg, #f1f5ff 0%, #eef2ff 100%)',
+    lightGradient: 'linear-gradient(135deg, #f1f5ff 0%, #eef2ff 100%)',
+    darkGradient: 'linear-gradient(135deg, #1e1b4b 0%, #1e1b3a 100%)',
     accent: '#4f46e5',
     icon: <DescriptionOutlined />,
   },
   povalue: {
-    gradient: 'linear-gradient(135deg, #eef9ff 0%, #e0f7fa 100%)',
+    lightGradient: 'linear-gradient(135deg, #eef9ff 0%, #e0f7fa 100%)',
+    darkGradient: 'linear-gradient(135deg, #0c2d48 0%, #0d3b4f 100%)',
     accent: '#0284c7',
     icon: <AttachMoneyOutlined />,
   },
   freight: {
-    gradient: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+    lightGradient: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+    darkGradient: 'linear-gradient(135deg, #3d1e05 0%, #3d2008 100%)',
     accent: '#d97706',
     icon: <LocalShippingOutlined />,
   },
   pct: {
-    gradient: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+    lightGradient: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+    darkGradient: 'linear-gradient(135deg, #2e1065 0%, #2a105e 100%)',
     accent: '#9333ea',
     icon: <TrendingUpOutlined />,
   },
   savings: {
-    gradient: 'linear-gradient(135deg, #ecfdf5 0%, #dff8ea 100%)',
+    lightGradient: 'linear-gradient(135deg, #ecfdf5 0%, #dff8ea 100%)',
+    darkGradient: 'linear-gradient(135deg, #052e16 0%, #063519 100%)',
     accent: '#059669',
     icon: <AccountBalanceWalletOutlined />,
   },
@@ -64,6 +70,7 @@ const FORWARDER_COLORS = [
 
 export default function Dashboard({ quotations, forwarders, displayCurrency }: DashboardProps) {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const isAdmin = user?.email === ADMIN_EMAIL;
   const safeNum = (v: number) => (Number.isFinite(v) ? v : 0);
 
@@ -72,31 +79,36 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
     [quotations]
   );
 
+  const poQuotations = useMemo(() =>
+    activeQuotations.filter(q => !q.excludedFromPO),
+    [activeQuotations]
+  );
+
   const pendingApprovalsCount = useMemo(() =>
     quotations.filter(q => q.status === 'Awaiting Approval').length,
     [quotations]
   );
 
-  const totalPOValue = useMemo(() => safeNum(activeQuotations.reduce((sum, q) => {
+  const totalPOValue = useMemo(() => safeNum(poQuotations.reduce((sum, q) => {
     const valInDisplay = convertCurrency(q.poValue, q.poValueCurrency || 'AED', displayCurrency);
     return sum + valInDisplay;
-  }, 0)), [activeQuotations, displayCurrency]);
+  }, 0)), [poQuotations, displayCurrency]);
 
-  const totalQuotations = activeQuotations.length;
+  const totalQuotations = poQuotations.length;
 
-  const totalFreightSpending = useMemo(() => safeNum(activeQuotations.reduce((sum, q) => {
+  const totalFreightSpending = useMemo(() => safeNum(poQuotations.reduce((sum, q) => {
     if (!q.awardedTo) return sum;
     const awardedQuote = q.quotes.find(qu => qu.forwarder === q.awardedTo);
     if (!awardedQuote) return sum;
     const valInDisplay = convertCurrency(awardedQuote.quotedAmount, awardedQuote.currency || 'AED', displayCurrency);
     return sum + valInDisplay;
-  }, 0)), [activeQuotations, displayCurrency]);
+  }, 0)), [poQuotations, displayCurrency]);
 
-  const totalSavings = useMemo(() => safeNum(activeQuotations.reduce((sum, q) => {
+  const totalSavings = useMemo(() => safeNum(poQuotations.reduce((sum, q) => {
     const savings = calculateAwardSavings(q.quotes, q.poValueCurrency || 'AED', q.awardedTo) ?? q.savings ?? 0;
     const savingsInDisplay = convertCurrency(savings, q.poValueCurrency || 'AED', displayCurrency);
     return sum + savingsInDisplay;
-  }, 0)), [activeQuotations, displayCurrency]);
+  }, 0)), [poQuotations, displayCurrency]);
 
   const freightVsPO = totalPOValue > 0
     ? ((totalFreightSpending / totalPOValue) * 100).toFixed(1)
@@ -105,7 +117,7 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
   const forwarderStats = useMemo(() => {
     const forwarderNames = forwarders.map(f => f.name);
     return forwarderNames.map(f => {
-      const awarded = activeQuotations.filter(q => q.awardedTo === f);
+      const awarded = poQuotations.filter(q => q.awardedTo === f);
       const totalValue = awarded.reduce((sum, q) => {
         const quote = q.quotes.find(qu => qu.forwarder === f);
         if (!quote) return sum;
@@ -114,14 +126,14 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
       }, 0);
       return { forwarder: f, count: awarded.length, totalValue };
     });
-  }, [forwarders, activeQuotations, displayCurrency]);
+  }, [forwarders, poQuotations, displayCurrency]);
 
-  const maxForwarderValue = forwarderStats.length > 0
-    ? Math.max(...forwarderStats.map(f => f.totalValue), 1)
-    : 1;
+  const totalForwarderValue = forwarderStats.length > 0
+    ? forwarderStats.reduce((sum, f) => sum + f.totalValue, 0)
+    : 0;
 
   const entityStats = useMemo(() => ENTITIES.map(e => {
-    const items = activeQuotations.filter(q => q.entity === e);
+    const items = poQuotations.filter(q => q.entity === e);
     const entityFreight = items.reduce((sum, q) => {
       if (!q.awardedTo) return sum;
       const awardedQuote = q.quotes.find(qu => qu.forwarder === q.awardedTo);
@@ -135,7 +147,7 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
     }, 0);
     const entityFreightPct = entityPOValue > 0 ? ((entityFreight / entityPOValue) * 100).toFixed(1) : '0.0';
     return { entity: e, count: items.length, totalValue: entityPOValue, freight: entityFreight, freightPct: entityFreightPct };
-  }), [activeQuotations, displayCurrency]);
+  }), [poQuotations, displayCurrency]);
 
   const statCards = [
     { key: 'pos', label: 'Total POs', value: String(totalQuotations), sub: `${ENTITIES.length} entities` },
@@ -164,19 +176,24 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
       <Grid container spacing={1.5}>
         {statCards.map((stat) => {
           const style = STAT_CARD_STYLES[stat.key]!;
+          const isDark = theme === 'dark';
           return (
             <Grid item xs={6} sm={4} lg={2.4} key={stat.key}>
               <Card sx={{
-                background: style.gradient,
+                background: isDark ? style.darkGradient : style.lightGradient,
                 color: 'text.primary',
                 border: '1px solid',
-                borderColor: 'rgba(23,32,31,0.08)',
-                boxShadow: '0 12px 28px -24px rgba(23,32,31,0.55)',
+                borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(23,32,31,0.08)',
+                boxShadow: isDark
+                  ? '0 12px 28px -24px rgba(0,0,0,0.7)'
+                  : '0 12px 28px -24px rgba(23,32,31,0.55)',
                 '& .MuiCardContent-root:last-child': { pb: 2 },
                 transition: 'transform 0.2s, box-shadow 0.3s',
                 '&:hover': {
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 16px 36px -26px rgba(23,32,31,0.75)',
+                  boxShadow: isDark
+                    ? '0 16px 36px -26px rgba(0,0,0,0.9)'
+                    : '0 16px 36px -26px rgba(23,32,31,0.75)',
                 },
               }}>
                 <CardContent sx={{ p: 2 }}>
@@ -236,7 +253,7 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                   {forwarderStats.map((f, i) => {
                     const color = FORWARDER_COLORS[i % FORWARDER_COLORS.length];
-                    const pct = maxForwarderValue > 0 ? Math.round((f.totalValue / maxForwarderValue) * 100) : 0;
+                    const pct = totalForwarderValue > 0 ? Math.round((f.totalValue / totalForwarderValue) * 100) : 0;
                     return (
                       <Box key={f.forwarder} sx={{
                         py: 1.25,

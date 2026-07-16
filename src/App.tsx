@@ -70,10 +70,10 @@ function AccessDenied() {
   );
 }
 
-class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
-  state = { hasError: false, error: '' };
-  static getDerivedStateFromError(err: Error) {
-    return { hasError: true, error: err.message };
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
   }
   render() {
     if (this.state.hasError) {
@@ -81,7 +81,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
         <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
           <Box sx={{ maxWidth: 440, width: '100%', p: 4, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
             <Typography variant="h6" fontWeight={700} gutterBottom>Something went wrong</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ my: 1.5 }}>{this.state.error}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ my: 1.5 }}>An unexpected error occurred. Please reload the page.</Typography>
             <Button variant="contained" onClick={() => window.location.reload()}>Reload</Button>
           </Box>
         </Box>
@@ -101,11 +101,12 @@ interface QuotationsPageProps {
   onDelete: (id: number) => void;
   onAward: (id: number, forwarder: string) => void;
   onStatusChange: (id: number, status: string) => void;
+  onExcludeToggle: (id: number, excluded: boolean) => void;
 }
 
 const QuotationsPage = (function QuotationsPage({
   filters, onFilterChange, filteredQuotations, quotations, forwarders,
-  onEdit, onDelete, onAward, onStatusChange,
+  onEdit, onDelete, onAward, onStatusChange, onExcludeToggle,
 }: QuotationsPageProps) {
   return (
     <>
@@ -117,6 +118,7 @@ const QuotationsPage = (function QuotationsPage({
         onDelete={onDelete}
         onAward={onAward}
         onStatusChange={onStatusChange}
+        onExcludeToggle={onExcludeToggle}
         searchActive={Boolean(filters.search.trim())}
       />
     </>
@@ -267,8 +269,7 @@ function AppContent() {
       .then(() => {
         snackbar.success(`Approval history updated for ${targets.length} quotation${targets.length === 1 ? '' : 's'}.`);
       })
-      .catch((err) => {
-        console.error('Approval backfill failed:', err);
+      .catch(() => {
         snackbar.error('Failed to update approval history.');
       });
   }, [loading, quotations, session, snackbar, updateQuotation, user]);
@@ -295,8 +296,7 @@ function AppContent() {
       }
       setShowForm(false);
       setEditingQuotation(null);
-    } catch (err) {
-      console.error('Save failed:', err);
+    } catch {
       snackbar.error('Failed to save quotation');
     }
   }, [editingQuotation, updateQuotation, addQuotation, snackbar, user]);
@@ -319,8 +319,7 @@ function AppContent() {
     try {
       await deleteQuotation(confirmDelete);
       snackbar.success('Quotation deleted successfully!');
-    } catch (err) {
-      console.error('Delete failed:', err);
+    } catch {
       snackbar.error('Failed to delete quotation');
     }
     setConfirmDelete(null);
@@ -339,8 +338,7 @@ function AppContent() {
     try {
       await deleteForwarder(confirmDeleteFwd);
       snackbar.success('Forwarder deleted successfully!');
-    } catch (err) {
-      console.error('Delete forwarder failed:', err);
+    } catch {
       snackbar.error('Failed to delete forwarder');
     }
     setConfirmDeleteFwd(null);
@@ -355,10 +353,9 @@ function AppContent() {
     try {
       await addForwarder(data);
       snackbar.success(`Forwarder "${data.name}" added successfully!`);
-    } catch (err) {
-      console.error('Failed to add forwarder:', err);
+    } catch {
       snackbar.error('Failed to add forwarder');
-      throw err;
+      throw new Error('Failed to add forwarder');
     }
   }, [forwarders, addForwarder, snackbar]);
 
@@ -371,10 +368,9 @@ function AppContent() {
     try {
       await updateForwarder(id, data);
       snackbar.success(`Forwarder "${data.name}" updated successfully!`);
-    } catch (err) {
-      console.error('Failed to update forwarder:', err);
+    } catch {
       snackbar.error('Failed to update forwarder');
-      throw err;
+      throw new Error('Failed to update forwarder');
     }
   }, [forwarders, updateForwarder, snackbar]);
 
@@ -438,8 +434,7 @@ function AppContent() {
       }
       await updateQuotation(id, { awardedTo: forwarder, ...savingsUpdate });
       snackbar.success(`Quotation awarded to ${forwarder}!`);
-    } catch (err) {
-      console.error('Award failed:', err);
+    } catch {
       snackbar.error('Failed to award forwarder');
     }
   }, [updateQuotation, quotations, snackbar]);
@@ -462,8 +457,7 @@ function AppContent() {
         : {};
       await updateQuotation(id, { status, ...approvalStamp });
       snackbar.success(`Quotation status updated to ${status}!`);
-    } catch (err) {
-      console.error('Status update failed:', err);
+    } catch {
       snackbar.error('Failed to update status');
     }
   }, [quotations, updateQuotation, snackbar, user]);
@@ -473,8 +467,7 @@ function AppContent() {
     try {
       await updateQuotation(rejectTarget, { status: 'Rejected', remarks: `Rejected: ${reason.trim() || 'No reason provided.'}` });
       snackbar.success('Quotation rejected!');
-    } catch (err) {
-      console.error('Status update failed:', err);
+    } catch {
       snackbar.error('Failed to update status');
     }
     setRejectTarget(null);
@@ -484,6 +477,14 @@ function AppContent() {
     setEditingQuotation(null);
     setShowForm(true);
   }, []);
+
+  const handleExcludeToggle = useCallback(async (id: number, excluded: boolean) => {
+    try {
+      await updateQuotation(id, { excludedFromPO: excluded });
+    } catch {
+      snackbar.error('Failed to update exclusion setting');
+    }
+  }, [updateQuotation, snackbar]);
 
   if (authLoading) {
     return (
@@ -566,6 +567,7 @@ function AppContent() {
                         onDelete={handleDelete}
                         onAward={handleAward}
                         onStatusChange={handleStatusChange}
+                        onExcludeToggle={handleExcludeToggle}
                       />
                     </ErrorBoundary>
                   )

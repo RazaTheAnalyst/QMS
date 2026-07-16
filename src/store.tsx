@@ -29,8 +29,7 @@ export function useStore() {
         const [qData, fData, uData] = await Promise.all([
           fetchQuotations(),
           fetchForwarders(),
-          fetchAppUsers().catch((err) => {
-            console.warn('App users table unavailable:', err);
+          fetchAppUsers().catch(() => {
             return [] as AppUser[];
           }),
         ]);

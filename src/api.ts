@@ -52,6 +52,7 @@ function rowToQuotation(row: QuotationRow): Quotation {
   let createdAt = '';
   let approvedBy = '';
   let approvedAt = '';
+  let excludedFromPO = false;
 
   if (row.quotes != null) {
     if (typeof row.quotes === 'string') {
@@ -63,6 +64,7 @@ function rowToQuotation(row: QuotationRow): Quotation {
           createdAt = String(parsed.createdAt ?? '');
           approvedBy = String(parsed.approvedBy ?? '');
           approvedAt = String(parsed.approvedAt ?? '');
+          excludedFromPO = parsed.excludedFromPO === true;
           const items = parsed.items;
           if (Array.isArray(items)) {
             parsedQuotes = items.map((q: Record<string, unknown>) => ({
@@ -97,6 +99,7 @@ function rowToQuotation(row: QuotationRow): Quotation {
       createdAt = String(obj.createdAt ?? '');
       approvedBy = String(obj.approvedBy ?? '');
       approvedAt = String(obj.approvedAt ?? '');
+      excludedFromPO = obj.excludedFromPO === true;
       const items = obj.items;
       if (Array.isArray(items)) {
         parsedQuotes = items.map((q) => {
@@ -136,6 +139,7 @@ function rowToQuotation(row: QuotationRow): Quotation {
     createdAt,
     approvedBy,
     approvedAt,
+    excludedFromPO,
   };
 }
 
@@ -184,6 +188,7 @@ function quotationInputToRow(data: QuotationInput, percentage = 0) {
       createdAt: data.createdAt ?? '',
       approvedBy: data.approvedBy ?? '',
       approvedAt: data.approvedAt ?? '',
+      excludedFromPO: data.excludedFromPO ?? false,
     }),
     awarded_to: data.awardedTo,
     remarks: data.remarks,
@@ -251,8 +256,8 @@ export async function fetchQuotations(): Promise<Quotation[]> {
   for (const row of rows) {
     try {
       quotations.push(rowToQuotation(row as QuotationRow));
-    } catch (err) {
-      console.error('Failed to map quotation row:', row?.id, err);
+    } catch {
+      // Row mapping failed — skip malformed rows
     }
   }
   return quotations;
@@ -309,6 +314,7 @@ export async function updateQuotationAPI(id: number, input: Partial<QuotationInp
     createdAt: input.createdAt !== undefined ? input.createdAt : parsedExisting.createdAt ?? '',
     approvedBy: input.approvedBy !== undefined ? input.approvedBy : parsedExisting.approvedBy ?? '',
     approvedAt: input.approvedAt !== undefined ? input.approvedAt : parsedExisting.approvedAt ?? '',
+    excludedFromPO: input.excludedFromPO !== undefined ? input.excludedFromPO : parsedExisting.excludedFromPO ?? false,
   });
 
   if (input.awardedTo !== undefined) row.awarded_to = input.awardedTo;

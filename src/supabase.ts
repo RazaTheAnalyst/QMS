@@ -9,4 +9,23 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    flowType: 'pkce',
+    storage: {
+      getItem: (key: string) => {
+        if (typeof document === 'undefined') return null;
+        const match = document.cookie.match(new RegExp('(^| )' + key + '=([^;]+)'));
+        return match?.[2] ? decodeURIComponent(match[2]) : null;
+      },
+      setItem: (key: string, value: string) => {
+        if (typeof document === 'undefined') return;
+        document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
+      },
+      removeItem: (key: string) => {
+        if (typeof document === 'undefined') return;
+        document.cookie = `${key}=; path=/; max-age=0`;
+      },
+    },
+  },
+});
