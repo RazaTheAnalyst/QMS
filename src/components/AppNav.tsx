@@ -1,12 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
-import { CURRENCY_LIST } from '../types';
 import type { AppModule } from '../types';
 import { useTheme } from '../theme';
 import { useAuth } from '../auth';
 import { getUserName } from '@/lib/utils';
 import {
   AppBar, Toolbar, Box, Button, IconButton, Typography, Tooltip,
-  FormControl, Select, MenuItem,
 } from '@mui/material';
 import Dashboard from '@mui/icons-material/Dashboard';
 import Description from '@mui/icons-material/Description';
@@ -19,8 +17,6 @@ import ManageAccounts from '@mui/icons-material/ManageAccounts';
 
 interface AppNavProps {
   onAdd: () => void;
-  displayCurrency: string;
-  onCurrencyChange: (currency: string) => void;
   modules: AppModule[];
 }
 
@@ -43,7 +39,7 @@ const utilityButtonSx = {
   },
 };
 
-export function AppNav({ onAdd, displayCurrency, onCurrencyChange, modules }: AppNavProps) {
+export function AppNav({ onAdd, modules }: AppNavProps) {
   const { toggleTheme, theme } = useTheme();
   const { user, signOut } = useAuth();
   const location = useLocation();
@@ -200,27 +196,6 @@ export function AppNav({ onAdd, displayCurrency, onCurrencyChange, modules }: Ap
               </IconButton>
             </Tooltip>
 
-            <FormControl size="small" sx={{ width: 82, flexShrink: 0, display: { xs: 'none', sm: 'block' } }}>
-              <Select
-                value={displayCurrency}
-                onChange={(e) => onCurrencyChange(e.target.value)}
-                aria-label="Display currency"
-                sx={{
-                  height: 34,
-                  fontSize: '0.78rem',
-                  fontWeight: 800,
-                  bgcolor: 'background.paper',
-                  borderRadius: 1,
-                  '& .MuiSelect-select': {
-                    py: 0.25,
-                    pl: 1,
-                    pr: '24px !important',
-                  },
-                }}
-              >
-                {CURRENCY_LIST.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-              </Select>
-            </FormControl>
             <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, minWidth: 0, maxWidth: { sm: 100, lg: 160 }, px: 0.5 }} noWrap>
               {userName}
             </Typography>

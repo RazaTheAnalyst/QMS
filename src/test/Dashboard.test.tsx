@@ -65,32 +65,32 @@ const mockQuotations: Quotation[] = [
 
 describe('Dashboard', () => {
   it('renders total POs count', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" onCurrencyChange={() => {}} />);
     expect(screen.getByText('Total POs')).toBeInTheDocument();
     expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders savings card', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" onCurrencyChange={() => {}} />);
     expect(screen.getByText('Total Savings')).toBeInTheDocument();
   });
 
   it('renders forwarder stats', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" onCurrencyChange={() => {}} />);
     expect(screen.getByText('Forwarder Performance')).toBeInTheDocument();
     expect(screen.getByText('BDP')).toBeInTheDocument();
     expect(screen.getByText('ECU')).toBeInTheDocument();
   });
 
   it('renders entity stats', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" onCurrencyChange={() => {}} />);
     expect(screen.getByText('Entity Breakdown')).toBeInTheDocument();
     expect(screen.getByText('UAE')).toBeInTheDocument();
     expect(screen.getByText('Qatar')).toBeInTheDocument();
   });
 
   it('formats currency values correctly', () => {
-    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" />);
+    render(<Dashboard quotations={mockQuotations} forwarders={mockForwarders} displayCurrency="AED" onCurrencyChange={() => {}} />);
     expect(screen.getByText('300,000.00')).toBeInTheDocument();
   });
 });

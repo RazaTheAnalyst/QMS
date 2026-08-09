@@ -6,7 +6,7 @@ import type { Filters } from '../types';
 
 describe('SearchFilter', () => {
   const mockOnChange = vi.fn();
-  const defaultFilters: Filters = { search: '', entity: '', status: '' };
+  const defaultFilters: Filters = { search: '', entity: '', status: '', mode: '', forwarder: '', dateFrom: '', dateTo: '' };
 
   beforeEach(() => {
     vi.clearAllMocks();

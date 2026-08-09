@@ -71,6 +71,7 @@ describe('QuotationTable', () => {
   const mockOnAward = vi.fn();
   const mockOnStatusChange = vi.fn();
   const mockOnExcludeToggle = vi.fn();
+  const mockOnClone = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -86,6 +87,8 @@ describe('QuotationTable', () => {
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
         onExcludeToggle={mockOnExcludeToggle}
+        onClone={mockOnClone}
+        displayCurrency="AED"
       />
     );
     expect(screen.getByText('Entity')).toBeInTheDocument();
@@ -103,6 +106,8 @@ describe('QuotationTable', () => {
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
         onExcludeToggle={mockOnExcludeToggle}
+        onClone={mockOnClone}
+        displayCurrency="AED"
       />
     );
     expect(screen.getByRole('table')).toBeInTheDocument();
@@ -120,6 +125,8 @@ describe('QuotationTable', () => {
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
         onExcludeToggle={mockOnExcludeToggle}
+        onClone={mockOnClone}
+        displayCurrency="AED"
       />
     );
     expect(screen.getByText('No quotations found')).toBeInTheDocument();
@@ -136,6 +143,8 @@ describe('QuotationTable', () => {
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
         onExcludeToggle={mockOnExcludeToggle}
+        onClone={mockOnClone}
+        displayCurrency="AED"
       />
     );
     const row = screen.getByRole('row', { name: /Test Supplier/ });
@@ -157,6 +166,8 @@ describe('QuotationTable', () => {
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
         onExcludeToggle={mockOnExcludeToggle}
+        onClone={mockOnClone}
+        displayCurrency="AED"
       />
     );
     const row = screen.getByRole('row', { name: /Test Supplier/ });
@@ -178,6 +189,8 @@ describe('QuotationTable', () => {
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
         onExcludeToggle={mockOnExcludeToggle}
+        onClone={mockOnClone}
+        displayCurrency="AED"
       />
     );
     const row = screen.getByRole('row', { name: /Test Supplier/ });
@@ -196,6 +209,8 @@ describe('QuotationTable', () => {
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
         onExcludeToggle={mockOnExcludeToggle}
+        onClone={mockOnClone}
+        displayCurrency="AED"
       />
     );
     expect(screen.getAllByText('Sent for quotation').length).toBeGreaterThanOrEqual(1);
@@ -211,7 +226,9 @@ describe('QuotationTable', () => {
         onAward={mockOnAward}
         onStatusChange={mockOnStatusChange}
         onExcludeToggle={mockOnExcludeToggle}
+        onClone={mockOnClone}
         searchActive
+        displayCurrency="AED"
       />
     );
     expect(screen.getAllByText('Test Supplier').length).toBeGreaterThanOrEqual(1);

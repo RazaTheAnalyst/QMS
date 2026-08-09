@@ -28,6 +28,10 @@ export interface AppUser {
 
 export type AppUserInput = Omit<AppUser, 'id' | 'createdAt' | 'updatedAt'>;
 
+export type QuotationStatus = typeof STATUS_LIST[number];
+export type Currency = typeof CURRENCY_LIST[number];
+export type Entity = typeof ENTITIES[number];
+
 export interface Quotation {
   id: number;
   entity: string;
@@ -62,6 +66,10 @@ export interface Filters {
   search: string;
   entity: string;
   status: string;
+  mode: string;
+  forwarder: string;
+  dateFrom: string;
+  dateTo: string;
 }
 
 export interface DashboardFilters {

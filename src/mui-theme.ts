@@ -50,9 +50,18 @@ export const getTheme = (mode: 'light' | 'dark') => createTheme({
         },
         '::-webkit-scrollbar': { width: 6, height: 6 },
         '::-webkit-scrollbar-track': { background: 'transparent' },
-        '::-webkit-scrollbar-thumb': { background: '#d9ded7', borderRadius: 3 },
-        '*': { scrollbarWidth: 'thin', scrollbarColor: '#d9ded7 transparent' },
-        '::selection': { background: '#0f766e', color: '#ffffff' },
+        '::-webkit-scrollbar-thumb': {
+          background: mode === 'light' ? '#d9ded7' : '#3a4a45',
+          borderRadius: 3,
+        },
+        '*': {
+          scrollbarWidth: 'thin',
+          scrollbarColor: mode === 'light' ? '#d9ded7 transparent' : '#3a4a45 transparent',
+        },
+        '::selection': {
+          background: mode === 'light' ? '#0f766e' : '#22a69a',
+          color: '#ffffff',
+        },
       },
     },
     MuiButton: {

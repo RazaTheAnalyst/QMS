@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ENTITIES, calculateAwardSavings, convertCurrency } from '../types';
+import { ENTITIES, CURRENCY_LIST, calculateAwardSavings, convertCurrency } from '../types';
 import { ADMIN_EMAIL } from '../types';
+import { getEntityColor } from '../entityColors';
 import type { Quotation, Forwarder, DashboardFilters } from '../types';
 import { useAuth } from '../auth';
 import { useTheme } from '../theme';
@@ -20,16 +21,7 @@ interface DashboardProps {
   quotations: Quotation[];
   forwarders: Forwarder[];
   displayCurrency: string;
-}
-
-const ENTITY_COLORS: Record<string, { main: string; gradient: string }> = {
-  UAE: { main: '#7c3aed', gradient: 'linear-gradient(135deg, #7c3aed, #a78bfa)' },
-  Qatar: { main: '#2563eb', gradient: 'linear-gradient(135deg, #2563eb, #60a5fa)' },
-  Oman: { main: '#059669', gradient: 'linear-gradient(135deg, #059669, #34d399)' },
-};
-
-function entityColor(entity: string): { main: string; gradient: string } {
-  return (ENTITY_COLORS[entity] || ENTITY_COLORS['UAE'])!;
+  onCurrencyChange: (currency: string) => void;
 }
 
 const STAT_CARD_STYLES: Record<string, { lightGradient: string; darkGradient: string; accent: string; icon: React.ReactNode }> = {
@@ -70,7 +62,7 @@ const FORWARDER_COLORS = [
   '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#ec4899',
 ];
 
-export default function Dashboard({ quotations, forwarders, displayCurrency }: DashboardProps) {
+export default function Dashboard({ quotations, forwarders, displayCurrency, onCurrencyChange }: DashboardProps) {
   const { user } = useAuth();
   const { theme } = useTheme();
   const isAdmin = user?.email === ADMIN_EMAIL;
@@ -205,6 +197,16 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        <FormControl size="small" sx={{ minWidth: 100 }}>
+          <InputLabel shrink>Currency</InputLabel>
+          <Select
+            value={displayCurrency}
+            label="Currency"
+            onChange={(e) => onCurrencyChange(e.target.value)}
+          >
+            {CURRENCY_LIST.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+          </Select>
+        </FormControl>
         {(dateFilters.dateFrom || dateFilters.dateTo || selectedMonth) && (
           <Chip
             label="Clear filters"
@@ -432,7 +434,7 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {entityStats.map(es => {
-                  const ec = entityColor(es.entity);
+                  const ec = getEntityColor(es.entity);
                   return (
                     <Box key={es.entity} sx={{
                       py: 1.4,

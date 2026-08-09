@@ -1,104 +1,93 @@
--- RLS policies for quotations and forwarders tables.
--- Run this in the Supabase SQL editor AFTER enabling RLS on these tables.
--- These policies enforce server-side authorization independently of client-side checks.
-
 -- ============================================================
--- QUOTATIONS TABLE
+-- QMS FULL MIGRATION — Run this single file in Supabase SQL Editor
 -- ============================================================
 
+-- 1) Add missing columns to quotations table
+alter table public.quotations
+  add column if not exists po_value_currency text,
+  add column if not exists created_by text,
+  add column if not exists created_at text,
+  add column if not exists approved_by text,
+  add column if not exists approved_at text,
+  add column if not exists excluded_from_po boolean not null default false;
+
+-- 2) Backfill existing rows from the quotes JSON blob (safe: skips non-JSON rows)
+update public.quotations
+set
+  po_value_currency = coalesce(quotes::jsonb ->> 'poValueCurrency', 'AED'),
+  created_by        = quotes::jsonb ->> 'createdBy',
+  created_at        = nullif(quotes::jsonb ->> 'createdAt', '')::timestamptz,
+  approved_by       = quotes::jsonb ->> 'approvedBy',
+  approved_at       = nullif(quotes::jsonb ->> 'approvedAt', '')::timestamptz,
+  excluded_from_po  = coalesce((quotes::jsonb ->> 'excludedFromPO')::boolean, false)
+where quotes is not null
+  and quotes::text ~ '^\s*\{'
+  and po_value_currency is null;
+
+-- 3) Enable RLS and create policies for quotations
 ALTER TABLE public.quotations ENABLE ROW LEVEL SECURITY;
 
--- Helper: check if the current user is a QMS admin
--- (reuses the is_qms_app_admin() function from supabase_app_users.sql)
-
--- All authenticated users can read quotations (read access for dashboard/reporting)
 DROP POLICY IF EXISTS "QMS authenticated users can read quotations" ON public.quotations;
 CREATE POLICY "QMS authenticated users can read quotations"
-ON public.quotations
-FOR SELECT
-TO authenticated
-USING (true);
+ON public.quotations FOR SELECT TO authenticated USING (true);
 
--- Admin and Logistics users can create quotations
-DROP POLICY IF EXISTS "QMS admin/logistics can create quotations" ON public.quotations;
-CREATE POLICY "QMS admin/logistics can create quotations"
-ON public.quotations
-FOR insert
-TO authenticated
+DROP POLICY IF EXISTS "QMS admin/logistics/sales can create quotations" ON public.quotations;
+CREATE POLICY "QMS admin/logistics/sales can create quotations"
+ON public.quotations FOR insert TO authenticated
 WITH CHECK (
   public.is_qms_app_admin()
   OR EXISTS (
-    SELECT 1
-    FROM public.app_users u
+    SELECT 1 FROM public.app_users u
     WHERE lower(u.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
       AND u.active = true
-      AND (u.role = 'Admin' OR u.role = 'Logistics')
+      AND (u.role = 'Admin' OR u.role = 'Logistics' OR u.role = 'Sales')
       AND 'quotations' = any(u.modules)
   )
 );
 
--- Admin and Logistics users can update quotations
-DROP POLICY IF EXISTS "QMS admin/logistics can update quotations" ON public.quotations;
-CREATE POLICY "QMS admin/logistics can update quotations"
-ON public.quotations
-FOR update
-TO authenticated
+DROP POLICY IF EXISTS "QMS admin/logistics/sales can update quotations" ON public.quotations;
+CREATE POLICY "QMS admin/logistics/sales can update quotations"
+ON public.quotations FOR update TO authenticated
 USING (
   public.is_qms_app_admin()
   OR EXISTS (
-    SELECT 1
-    FROM public.app_users u
+    SELECT 1 FROM public.app_users u
     WHERE lower(u.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
       AND u.active = true
-      AND (u.role = 'Admin' OR u.role = 'Logistics')
+      AND (u.role = 'Admin' OR u.role = 'Logistics' OR u.role = 'Sales')
       AND 'quotations' = any(u.modules)
   )
 )
 WITH CHECK (
   public.is_qms_app_admin()
   OR EXISTS (
-    SELECT 1
-    FROM public.app_users u
+    SELECT 1 FROM public.app_users u
     WHERE lower(u.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
       AND u.active = true
-      AND (u.role = 'Admin' OR u.role = 'Logistics')
+      AND (u.role = 'Admin' OR u.role = 'Logistics' OR u.role = 'Sales')
       AND 'quotations' = any(u.modules)
   )
 );
 
--- Only admins can delete quotations
 DROP POLICY IF EXISTS "QMS admins can delete quotations" ON public.quotations;
 CREATE POLICY "QMS admins can delete quotations"
-ON public.quotations
-FOR delete
-TO authenticated
+ON public.quotations FOR delete TO authenticated
 USING (public.is_qms_app_admin());
 
--- ============================================================
--- FORWARDERS TABLE
--- ============================================================
-
+-- 4) Enable RLS and create policies for forwarders
 ALTER TABLE public.forwarders ENABLE ROW LEVEL SECURITY;
 
--- All authenticated users can read forwarders
 DROP POLICY IF EXISTS "QMS authenticated users can read forwarders" ON public.forwarders;
 CREATE POLICY "QMS authenticated users can read forwarders"
-ON public.forwarders
-FOR SELECT
-TO authenticated
-USING (true);
+ON public.forwarders FOR SELECT TO authenticated USING (true);
 
--- Admin and Logistics users can create forwarders
 DROP POLICY IF EXISTS "QMS admin/logistics can create forwarders" ON public.forwarders;
 CREATE POLICY "QMS admin/logistics can create forwarders"
-ON public.forwarders
-FOR insert
-TO authenticated
+ON public.forwarders FOR insert TO authenticated
 WITH CHECK (
   public.is_qms_app_admin()
   OR EXISTS (
-    SELECT 1
-    FROM public.app_users u
+    SELECT 1 FROM public.app_users u
     WHERE lower(u.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
       AND u.active = true
       AND (u.role = 'Admin' OR u.role = 'Logistics')
@@ -106,17 +95,13 @@ WITH CHECK (
   )
 );
 
--- Admin and Logistics users can update forwarders
 DROP POLICY IF EXISTS "QMS admin/logistics can update forwarders" ON public.forwarders;
 CREATE POLICY "QMS admin/logistics can update forwarders"
-ON public.forwarders
-FOR update
-TO authenticated
+ON public.forwarders FOR update TO authenticated
 USING (
   public.is_qms_app_admin()
   OR EXISTS (
-    SELECT 1
-    FROM public.app_users u
+    SELECT 1 FROM public.app_users u
     WHERE lower(u.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
       AND u.active = true
       AND (u.role = 'Admin' OR u.role = 'Logistics')
@@ -126,8 +111,7 @@ USING (
 WITH CHECK (
   public.is_qms_app_admin()
   OR EXISTS (
-    SELECT 1
-    FROM public.app_users u
+    SELECT 1 FROM public.app_users u
     WHERE lower(u.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
       AND u.active = true
       AND (u.role = 'Admin' OR u.role = 'Logistics')
@@ -135,10 +119,7 @@ WITH CHECK (
   )
 );
 
--- Only admins can delete forwarders
 DROP POLICY IF EXISTS "QMS admins can delete forwarders" ON public.forwarders;
 CREATE POLICY "QMS admins can delete forwarders"
-ON public.forwarders
-FOR delete
-TO authenticated
+ON public.forwarders FOR delete TO authenticated
 USING (public.is_qms_app_admin());

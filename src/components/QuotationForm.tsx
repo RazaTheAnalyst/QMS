@@ -48,7 +48,13 @@ const schema = z.object({
     quotedAmount: z.coerce.number().min(0).default(0),
     currency: z.string().min(3).max(3).default('AED'),
   })).default([]),
-});
+}).refine(
+  (data) => !data.etd || !data.eta || data.eta >= data.etd,
+  { message: 'ETA must be after ETD', path: ['eta'] }
+).refine(
+  (data) => data.quotes.some(q => q.quotedAmount > 0),
+  { message: 'At least one quote with a positive amount is required', path: ['quotes'] }
+);
 
 type QuotationFormData = z.infer<typeof schema>;
 
@@ -266,6 +272,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
   const poValue = useWatch({ control, name: 'poValue' }) ?? 0;
   const awardedTo = useWatch({ control, name: 'awardedTo' }) ?? '';
   const quotes = useWatch({ control, name: 'quotes' });
+  const remarksValue = useWatch({ control, name: 'remarks' }) ?? '';
 
   const validQuotesConverted = useMemo(() => {
     return quotes.filter(q => q && q.quotedAmount > 0).map(q => ({
@@ -309,8 +316,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
   };
 
   const handleAddForwarder = () => {
-    const lastForwarder = forwarders[forwarders.length - 1];
-    append({ forwarder: lastForwarder?.name ?? '', quotedAmount: 0, currency: 'AED' });
+    append({ forwarder: '', quotedAmount: 0, currency: 'AED' });
   };
 
   const sectionCard = (title: string, icon: React.ElementType, color: string, children: React.ReactNode) => (
@@ -589,6 +595,26 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
                           </IconButton>
                         )}
                       </Box>
+                      {quoteAmount > 0 && validQuotesConverted.length > 1 && (() => {
+                        const convertedAmount = convertCurrency(quoteAmount, quoteCurrency || 'AED', poValueCurrency);
+                        const maxAmount = Math.max(...validQuotesConverted.map(q => q.amountInPoCurrency));
+                        const barPercent = maxAmount > 0 ? (convertedAmount / maxAmount) * 100 : 0;
+                        return (
+                          <Box sx={{ mt: 1.25, mx: 5 }}>
+                            <Box sx={{ height: 6, borderRadius: 3, bgcolor: 'action.hover', overflow: 'hidden' }}>
+                              <Box sx={{
+                                height: '100%', borderRadius: 3,
+                                width: `${barPercent}%`,
+                                bgcolor: isLowest ? '#059669' : isAwarded ? '#d4a648' : '#6366f1',
+                                transition: 'width 0.3s ease',
+                              }} />
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'right', fontFamily: 'monospace' }}>
+                              {poValueCurrency} {formatCurrency(convertedAmount)}
+                            </Typography>
+                          </Box>
+                        );
+                      })()}
                       {(isAwarded || isLowest) && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1, ml: 5 }}>
                           {isAwarded ? (
@@ -662,7 +688,10 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
               <Controller name="remarks" control={control} render={({ field }) => (
                 <FormField label="Remarks & Notes">
                   <TextField {...field} placeholder="Add any freight notes, special instructions..."
-                    multiline rows={3} size="small" fullWidth inputProps={{ maxLength: 500 }} sx={fieldSx} />
+                    multiline rows={3} size="small" fullWidth
+                    inputProps={{ maxLength: 500 }}
+                    helperText={`${remarksValue.length}/500`}
+                    sx={fieldSx} />
                 </FormField>
               )} />
             </Stack>

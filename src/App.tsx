@@ -79,15 +79,17 @@ interface QuotationsPageProps {
   onAward: (id: number, forwarder: string) => void;
   onStatusChange: (id: number, status: string) => void;
   onExcludeToggle: (id: number, excluded: boolean) => void;
+  onClone: (quotation: Quotation) => void;
+  displayCurrency: string;
 }
 
 const QuotationsPage = (function QuotationsPage({
   filters, onFilterChange, filteredQuotations, quotations, forwarders,
-  onEdit, onDelete, onAward, onStatusChange, onExcludeToggle,
+  onEdit, onDelete, onAward, onStatusChange, onExcludeToggle, onClone, displayCurrency,
 }: QuotationsPageProps) {
   return (
     <>
-      <SearchFilter filters={filters} onFilterChange={onFilterChange} resultCount={filteredQuotations.length} totalCount={quotations.length} />
+      <SearchFilter filters={filters} onFilterChange={onFilterChange} resultCount={filteredQuotations.length} totalCount={quotations.length} forwarders={forwarders} />
       <QuotationTable
         quotations={filteredQuotations}
         forwarders={forwarders}
@@ -96,7 +98,9 @@ const QuotationsPage = (function QuotationsPage({
         onAward={onAward}
         onStatusChange={onStatusChange}
         onExcludeToggle={onExcludeToggle}
+        onClone={onClone}
         searchActive={Boolean(filters.search.trim())}
+        displayCurrency={displayCurrency}
       />
     </>
   );
@@ -160,7 +164,7 @@ function AppContent() {
   } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
-  const [filters, setFilters] = useState<Filters>({ search: '', entity: '', status: '' });
+  const [filters, setFilters] = useState<Filters>({ search: '', entity: '', status: '', mode: '', forwarder: '', dateFrom: '', dateTo: '' });
   const [displayCurrency, setDisplayCurrency] = useState('AED');
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [confirmDeleteFwd, setConfirmDeleteFwd] = useState<number | null>(null);
@@ -187,7 +191,18 @@ function AppContent() {
         q.quotes.some(qu => qu.forwarder.toLowerCase().includes(searchLower));
       const entityMatch = !filters.entity || q.entity === filters.entity;
       const statusMatch = !filters.status || q.status === filters.status;
-      return searchMatch && entityMatch && statusMatch;
+      const modeMatch = !filters.mode || q.mode === filters.mode;
+      const forwarderMatch = !filters.forwarder || q.awardedTo === filters.forwarder;
+      const dateMatch = (() => {
+        if (!filters.dateFrom && !filters.dateTo) return true;
+        if (!q.createdAt) return false;
+        const ts = new Date(q.createdAt).getTime();
+        if (Number.isNaN(ts)) return false;
+        const from = filters.dateFrom ? new Date(filters.dateFrom + 'T00:00:00').getTime() : -Infinity;
+        const to = filters.dateTo ? new Date(filters.dateTo + 'T23:59:59.999').getTime() : Infinity;
+        return ts >= from && ts <= to;
+      })();
+      return searchMatch && entityMatch && statusMatch && modeMatch && forwarderMatch && dateMatch;
     });
   }, [quotations, filters, debouncedSearch]);
 
@@ -230,7 +245,7 @@ function AppContent() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { percentage: _pct, ...input } = data;
-      if (editingQuotation) {
+      if (editingQuotation && editingQuotation.id > 0) {
         await updateQuotation(editingQuotation.id, input);
         snackbar.success('Quotation updated successfully!');
       } else {
@@ -251,8 +266,9 @@ function AppContent() {
       }
       setShowForm(false);
       setEditingQuotation(null);
-    } catch {
-      snackbar.error('Failed to save quotation');
+    } catch (err) {
+      console.error('Failed to save quotation:', err);
+      snackbar.error(`Failed to save quotation: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   }, [editingQuotation, updateQuotation, addQuotation, snackbar, user, quotations]);
 
@@ -428,6 +444,22 @@ function AppContent() {
     setRejectTarget(null);
   }, [rejectTarget, updateQuotation, snackbar]);
 
+  const handleClone = useCallback((quotation: Quotation) => {
+    setEditingQuotation({
+      ...quotation,
+      id: 0,
+      status: 'Pending',
+      awardedTo: '',
+      savings: 0,
+      createdBy: getUserName(user),
+      createdAt: new Date().toISOString(),
+      approvedBy: '',
+      approvedAt: '',
+      percentage: 0,
+    });
+    setShowForm(true);
+  }, [user]);
+
   const handleAdd = useCallback(() => {
     setEditingQuotation(null);
     setShowForm(true);
@@ -475,8 +507,6 @@ function AppContent() {
     <>
       <AppNav
         onAdd={handleAdd}
-        displayCurrency={displayCurrency}
-        onCurrencyChange={setDisplayCurrency}
         modules={currentAccess.modules}
       />
 
@@ -502,7 +532,7 @@ function AppContent() {
               path="/"
               element={
                 canAccess('dashboard')
-                  ? <ErrorBoundary key="dashboard"><Dashboard quotations={quotations} forwarders={forwarders} displayCurrency={displayCurrency} /></ErrorBoundary>
+                  ? <ErrorBoundary key="dashboard"><Dashboard quotations={quotations} forwarders={forwarders} displayCurrency={displayCurrency} onCurrencyChange={setDisplayCurrency} /></ErrorBoundary>
                   : <AccessDenied />
               }
             />
@@ -523,6 +553,8 @@ function AppContent() {
                         onAward={handleAward}
                         onStatusChange={handleStatusChange}
                         onExcludeToggle={handleExcludeToggle}
+                        onClone={handleClone}
+                        displayCurrency={displayCurrency}
                       />
                     </ErrorBoundary>
                   )

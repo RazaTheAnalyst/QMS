@@ -15,6 +15,7 @@ interface MobileNavProps {
 
 export function MobileNav({ onAdd, pendingApprovalsCount, modules }: MobileNavProps) {
   const location = useLocation();
+  const isActive = (to: string) => to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
 
   const tabs = [
     { to: '/', label: 'Dashboard', icon: Dashboard, module: 'dashboard' as const },
@@ -26,7 +27,7 @@ export function MobileNav({ onAdd, pendingApprovalsCount, modules }: MobileNavPr
   return (
     <Box sx={{ display: { md: 'none' }, position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1200 }}>
       <BottomNavigation
-        value={location.pathname}
+        value={tabs.find(t => isActive(t.to))?.to ?? '/'}
         showLabels
         sx={{
           borderTop: '1px solid',
@@ -53,7 +54,7 @@ export function MobileNav({ onAdd, pendingApprovalsCount, modules }: MobileNavPr
               )
             }
             sx={{
-              color: location.pathname === tab.to ? 'primary.main' : 'text.secondary',
+              color: isActive(tab.to) ? 'primary.main' : 'text.secondary',
               '&.Mui-selected': { color: 'primary.main' },
               fontSize: '0.6875rem',
               fontWeight: 600,

@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import {
   STATUS_LIST, calculateAwardSavings, convertCurrency, ADMIN_EMAIL,
 } from '../types';
+import { getEntityColor } from '../entityColors';
 import type { Quotation, Forwarder } from '../types';
 import { useAuth } from '../auth';
 import { getModeIcon, formatCurrency, displayName } from '@/lib/utils';
@@ -25,17 +26,12 @@ import Edit from '@mui/icons-material/Edit';
 import Delete from '@mui/icons-material/Delete';
 import Lock from '@mui/icons-material/Lock';
 import Send from '@mui/icons-material/Send';
+import ContentCopy from '@mui/icons-material/ContentCopy';
 import AttachMoney from '@mui/icons-material/AttachMoney';
 import ArrowForward from '@mui/icons-material/ArrowForward';
 import AccessTime from '@mui/icons-material/AccessTime';
 import StarBorder from '@mui/icons-material/StarBorder';
 import Inventory from '@mui/icons-material/Inventory';
-
-const ENTITY_COLORS: Record<string, string> = {
-  UAE: '#7c3aed',
-  Qatar: '#2563eb',
-  Oman: '#059669',
-};
 
 const STATUS_STYLE: Record<string, { color: string; bg: string; darkBg: string }> = {
   'Awaiting Approval': { color: '#d97706', bg: '#fef3c7', darkBg: 'rgba(217,119,6,0.16)' },
@@ -195,10 +191,12 @@ interface QuotationTableProps {
   onAward: (id: number, forwarder: string) => void;
   onStatusChange: (id: number, status: string) => void;
   onExcludeToggle: (id: number, excluded: boolean) => void;
+  onClone: (quotation: Quotation) => void;
   searchActive?: boolean;
+  displayCurrency: string;
 }
 
-export default function QuotationTable({ quotations, forwarders, onEdit, onDelete, onAward, onStatusChange, onExcludeToggle, searchActive = false }: QuotationTableProps) {
+export default function QuotationTable({ quotations, forwarders, onEdit, onDelete, onAward, onStatusChange, onExcludeToggle, onClone, searchActive = false, displayCurrency }: QuotationTableProps) {
   const [detailQuotation, setDetailQuotation] = useState<Quotation | null>(null);
   const { user } = useAuth();
   const isAdmin = user?.email === ADMIN_EMAIL;
@@ -442,7 +440,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                 </TableRow>
               ) : (
                 pageQuotations.map(q => {
-                  const entityColor = ENTITY_COLORS[q.entity] || '#66736f';
+                  const entityColor = getEntityColor(q.entity).main;
                   const statusStyle = getStatusStyle(q.status, muiTheme.palette.mode);
                   const savings = getEffectiveSavings(q);
                   return (
@@ -573,7 +571,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
             </Card>
           ) : (
             pageQuotations.map(q => {
-              const entityColor = ENTITY_COLORS[q.entity] || '#66736f';
+              const entityColor = getEntityColor(q.entity).main;
                   const statusStyle = getStatusStyle(q.status, muiTheme.palette.mode);
               const savings = getEffectiveSavings(q);
               return (
@@ -677,7 +675,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
         sx={{ '& .MuiDialog-paper': { borderRadius: 2, overflow: 'hidden' } }}>
         {currentQuotation && (() => {
           const dq = currentQuotation;
-          const entityColor = ENTITY_COLORS[dq.entity] || '#66736f';
+          const entityColor = getEntityColor(dq.entity).main;
           const statusStyle = getStatusStyle(dq.status, muiTheme.palette.mode);
           const savings = getEffectiveSavings(dq);
           return (
@@ -745,6 +743,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                         <AttachMoney sx={{ fontSize: 14 }} />
                       </Box>
                       <Typography variant="subtitle2" fontWeight={700}>Forwarder Quotes</Typography>
+                      <Typography variant="caption" color="text.secondary">({displayCurrency})</Typography>
                     </Box>
                     {savings !== 0 && (
                       <Chip label={`${savings < 0 ? 'Extra Cost' : 'Savings'}: ${dq.poValueCurrency || 'AED'} ${formatCurrency(Math.abs(savings))}`}
@@ -752,32 +751,86 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                     )}
                   </Box>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {dq.quotes.filter(qt => qt.quotedAmount > 0).map(qt => (
-                      <Paper key={qt.forwarder} variant="outlined" sx={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, px: 2, py: 1.5,
-                        borderColor: dq.awardedTo === qt.forwarder ? '#059669' : 'divider',
-                        bgcolor: dq.awardedTo === qt.forwarder ? 'rgba(5,150,105,0.04)' : 'background.paper',
-                        borderWidth: dq.awardedTo === qt.forwarder ? 2 : 1,
-                        opacity: dq.awardedTo && dq.awardedTo !== qt.forwarder ? 0.6 : 1,
-                      }}>
-                        <Typography variant="body2" fontWeight={600}>{qt.forwarder}</Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Typography variant="body2" fontWeight={700}>{qt.currency || 'AED'} {formatCurrency(qt.quotedAmount)}</Typography>
-                          {!(!isAdmin && (dq.status === 'Awaiting Approval' || dq.status === 'Rejected')) && (
-                            <Button
-                              size="small"
-                              variant={dq.awardedTo === qt.forwarder ? 'contained' : 'outlined'}
-                              color={dq.awardedTo === qt.forwarder ? 'success' : 'primary'}
-                              sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem' }}
-                              onClick={() => onAward(dq.id, qt.forwarder)}
-                              startIcon={dq.awardedTo === qt.forwarder ? <Star /> : <StarBorder />}
-                            >
-                              {dq.awardedTo === qt.forwarder ? 'Awarded' : 'Award'}
-                            </Button>
-                          )}
-                        </Box>
-                      </Paper>
-                    ))}
+                    {(() => {
+                      const validQuotes = dq.quotes.filter(qt => qt.quotedAmount > 0);
+                      const convertedQuotes = validQuotes.map(qt => ({
+                        ...qt,
+                        convertedAmount: convertCurrency(qt.quotedAmount, qt.currency || 'AED', displayCurrency),
+                      }));
+                      const convertedAmounts = convertedQuotes.map(q => q.convertedAmount);
+                      const minAmount = convertedAmounts.length > 0 ? Math.min(...convertedAmounts) : 0;
+                      const maxAmount = convertedAmounts.length > 0 ? Math.max(...convertedAmounts) : 0;
+                      const hasRange = convertedAmounts.length > 1 && minAmount !== maxAmount;
+
+                      return convertedQuotes.map(qt => {
+                        const isLowest = hasRange && qt.convertedAmount === minAmount;
+                        const isHighest = hasRange && qt.convertedAmount === maxAmount;
+                        const isAwarded = dq.awardedTo === qt.forwarder;
+                        let borderColor = 'divider';
+                        let borderWidth = 1;
+                        let bgColor = 'background.paper';
+
+                        if (isAwarded) {
+                          borderColor = '#059669';
+                          borderWidth = 2;
+                          bgColor = 'rgba(5,150,105,0.04)';
+                        } else if (isLowest) {
+                          borderColor = '#059669';
+                          borderWidth = 2;
+                          bgColor = 'rgba(5,150,105,0.06)';
+                        } else if (isHighest) {
+                          borderColor = '#dc2626';
+                          borderWidth = 2;
+                          bgColor = 'rgba(220,38,38,0.04)';
+                        }
+
+                        return (
+                          <Paper key={qt.forwarder} variant="outlined" sx={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, px: 2, py: 1.5,
+                            borderColor,
+                            bgcolor: bgColor,
+                            borderWidth,
+                            opacity: dq.awardedTo && !isAwarded ? 0.6 : 1,
+                          }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                              <Typography variant="body2" fontWeight={600} noWrap>{qt.forwarder}</Typography>
+                              {isLowest && (
+                                <Chip label="Lowest" size="small"
+                                  sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#059669', color: '#fff', flexShrink: 0 }} />
+                              )}
+                              {isHighest && (
+                                <Chip label="Highest" size="small"
+                                  sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#dc2626', color: '#fff', flexShrink: 0 }} />
+                              )}
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+                              <Box sx={{ textAlign: 'right' }}>
+                                <Typography variant="body2" fontWeight={700} sx={{ fontFamily: 'monospace' }}>
+                                  {formatCurrency(qt.convertedAmount)} {displayCurrency}
+                                </Typography>
+                                {qt.currency && qt.currency !== displayCurrency && (
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                                    {qt.currency} {formatCurrency(qt.quotedAmount)}
+                                  </Typography>
+                                )}
+                              </Box>
+                              {!(!isAdmin && (dq.status === 'Awaiting Approval' || dq.status === 'Rejected')) && (
+                                <Button
+                                  size="small"
+                                  variant={isAwarded ? 'contained' : 'outlined'}
+                                  color={isAwarded ? 'success' : 'primary'}
+                                  sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem' }}
+                                  onClick={() => onAward(dq.id, qt.forwarder)}
+                                  startIcon={isAwarded ? <Star /> : <StarBorder />}
+                                >
+                                  {isAwarded ? 'Awarded' : 'Award'}
+                                </Button>
+                              )}
+                            </Box>
+                          </Paper>
+                        );
+                      });
+                    })()}
                     {dq.quotes.filter(qt => qt.quotedAmount > 0).length === 0 && (
                       <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>No quotes yet</Typography>
                     )}
@@ -866,6 +919,8 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                     </Button>
                   )}
                   <Button variant="outlined" size="small" sx={{ minWidth: 84 }} onClick={() => setDetailQuotation(null)}>Close</Button>
+                  <Button variant="outlined" size="small" startIcon={<ContentCopy />}
+                    onClick={() => { setDetailQuotation(null); onClone(dq); }}>Clone</Button>
                   {!isAdmin && dq.status === 'Awaiting Approval' ? (
                     <Button variant="outlined" size="small" disabled startIcon={<Lock />}>Under Review</Button>
                   ) : (
