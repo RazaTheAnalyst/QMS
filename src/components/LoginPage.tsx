@@ -31,6 +31,58 @@ function LoginField({ label, children }: { label: string; children: React.ReactN
   );
 }
 
+function FreightIllustration() {
+  return (
+    <Box sx={{ width: '100%', height: 140, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', pb: 2, pt: 1.5, borderRadius: '16px 16px 0 0', bgcolor: theme => theme.palette.mode === 'light' ? 'rgba(15,118,110,0.06)' : 'rgba(34,166,154,0.08)', position: 'relative', overflow: 'hidden' }}>
+      <svg viewBox="0 0 400 120" width="340" height="110" xmlns="http://www.w3.org/2000/svg">
+        {/* Water */}
+        <path d="M0 95 Q50 88 100 95 Q150 102 200 95 Q250 88 300 95 Q350 102 400 95 L400 120 L0 120 Z" fill="rgba(49,116,143,0.15)" />
+        <path d="M0 102 Q60 96 120 102 Q180 108 240 102 Q300 96 360 102 L400 102 L400 120 L0 120 Z" fill="rgba(49,116,143,0.08)" />
+
+        {/* Ship hull */}
+        <path d="M60 88 L80 68 L320 68 L340 88 Q280 100 200 100 Q120 100 60 88 Z" fill="rgba(15,118,110,0.7)" />
+        <path d="M80 68 L320 68 L320 74 L80 74 Z" fill="rgba(15,118,110,0.85)" />
+
+        {/* Containers row 1 */}
+        <rect x="100" y="42" width="32" height="26" rx="2" fill="#0f766e" opacity="0.9" />
+        <rect x="136" y="42" width="32" height="26" rx="2" fill="#31748f" opacity="0.85" />
+        <rect x="172" y="42" width="32" height="26" rx="2" fill="#0f766e" opacity="0.95" />
+        <rect x="208" y="42" width="32" height="26" rx="2" fill="#31748f" opacity="0.8" />
+        <rect x="244" y="42" width="32" height="26" rx="2" fill="#0f766e" opacity="0.9" />
+        <rect x="280" y="42" width="32" height="26" rx="2" fill="#31748f" opacity="0.85" />
+
+        {/* Containers row 2 */}
+        <rect x="118" y="22" width="32" height="20" rx="2" fill="#31748f" opacity="0.75" />
+        <rect x="154" y="22" width="32" height="20" rx="2" fill="#0f766e" opacity="0.85" />
+        <rect x="190" y="22" width="32" height="20" rx="2" fill="#31748f" opacity="0.8" />
+        <rect x="226" y="22" width="32" height="20" rx="2" fill="#0f766e" opacity="0.75" />
+        <rect x="262" y="22" width="32" height="20" rx="2" fill="#31748f" opacity="0.9" />
+
+        {/* Crane */}
+        <rect x="330" y="10" width="6" height="58" rx="2" fill="rgba(15,118,110,0.6)" />
+        <rect x="310" y="8" width="50" height="5" rx="2" fill="rgba(15,118,110,0.5)" />
+        <line x1="315" y1="13" x2="315" y2="30" stroke="rgba(15,118,110,0.3)" strokeWidth="1.5" />
+        <line x1="325" y1="13" x2="325" y2="26" stroke="rgba(15,118,110,0.3)" strokeWidth="1.5" />
+        <line x1="335" y1="13" x2="335" y2="22" stroke="rgba(15,118,110,0.3)" strokeWidth="1.5" />
+
+        {/* Ship deck detail */}
+        <rect x="90" y="66" width="20" height="8" rx="1" fill="rgba(255,255,255,0.15)" />
+        <rect x="310" y="66" width="20" height="8" rx="1" fill="rgba(255,255,255,0.15)" />
+
+        {/* Small waves */}
+        <path d="M0 98 Q20 94 40 98 Q60 102 80 98" stroke="rgba(49,116,143,0.2)" strokeWidth="1.5" fill="none" />
+        <path d="M320 98 Q340 94 360 98 Q380 102 400 98" stroke="rgba(49,116,143,0.2)" strokeWidth="1.5" fill="none" />
+      </svg>
+    </Box>
+  );
+}
+
+const features = [
+  { icon: '📦', text: 'Track quotations in real-time' },
+  { icon: '💱', text: 'Compare freight rates across currencies' },
+  { icon: '⚡', text: 'Streamline approvals with instant alerts' },
+];
+
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 60_000;
 
@@ -116,6 +168,7 @@ export default function LoginPage() {
     <Box sx={{
       minHeight: '100vh',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       bgcolor: theme => theme.palette.mode === 'light' ? '#eef4f1' : 'background.default',
@@ -129,15 +182,8 @@ export default function LoginPage() {
           position: 'absolute',
           inset: 0,
           background: theme => theme.palette.mode === 'light'
-            ? 'linear-gradient(180deg, #f6faf8 0%, #eef4f1 100%)'
+            ? 'radial-gradient(ellipse at 50% 0%, rgba(15,118,110,0.08) 0%, transparent 60%)'
             : 'radial-gradient(circle at 50% 0%, rgba(34,166,154,0.12), transparent 42%)',
-        }} />
-        <Box sx={{
-          position: 'absolute',
-          inset: 0,
-          opacity: theme => theme.palette.mode === 'light' ? 0.18 : 0.08,
-          backgroundImage: 'linear-gradient(rgba(15,118,110,0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(15,118,110,0.16) 1px, transparent 1px)',
-          backgroundSize: '44px 44px',
         }} />
       </Box>
 
@@ -154,7 +200,9 @@ export default function LoginPage() {
           ? '0 28px 70px -54px rgba(23,32,31,0.8)'
           : '0 28px 70px -54px rgba(0,0,0,0.95)',
       }}>
-        <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
+        <FreightIllustration />
+
+        <CardContent sx={{ p: { xs: 3, sm: 4 }, pt: { xs: 2.5, sm: 3 } }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, mb: 3 }}>
             <Box sx={{
               width: 52,
@@ -273,6 +321,17 @@ export default function LoginPage() {
           </Typography>
         </CardContent>
       </Card>
+
+      <Box sx={{ display: 'flex', gap: { xs: 1.5, sm: 3 }, mt: 4, maxWidth: 520, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {features.map((f) => (
+          <Box key={f.text} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography fontSize={16}>{f.icon}</Typography>
+            <Typography variant="body2" color="text.secondary" fontWeight={550} whiteSpace="nowrap">
+              {f.text}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
 
       <Dialog open={forgotOpen} onClose={() => setForgotOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 2 }}>
