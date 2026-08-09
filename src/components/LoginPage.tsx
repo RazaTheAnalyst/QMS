@@ -3,7 +3,7 @@ import { useAuth } from '../auth';
 import { useTheme } from '../theme';
 import { loginFieldSx } from '@/lib/loginFieldSx';
 import {
-  Box, Card, CardContent, Typography, TextField, Button,
+  Box, Typography, TextField, Button,
   InputAdornment, IconButton, Alert, CircularProgress, Stack, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
@@ -15,6 +15,9 @@ import DarkMode from '@mui/icons-material/DarkMode';
 import LightMode from '@mui/icons-material/LightMode';
 import Key from '@mui/icons-material/Key';
 import CloseIcon from '@mui/icons-material/Close';
+import LocalShipping from '@mui/icons-material/LocalShipping';
+import CompareArrows from '@mui/icons-material/CompareArrows';
+import Speed from '@mui/icons-material/Speed';
 
 function LoginField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -31,56 +34,10 @@ function LoginField({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-function FreightIllustration() {
-  return (
-    <Box sx={{ width: '100%', height: 140, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', pb: 2, pt: 1.5, borderRadius: '16px 16px 0 0', bgcolor: theme => theme.palette.mode === 'light' ? 'rgba(15,118,110,0.06)' : 'rgba(34,166,154,0.08)', position: 'relative', overflow: 'hidden' }}>
-      <svg viewBox="0 0 400 120" width="340" height="110" xmlns="http://www.w3.org/2000/svg">
-        {/* Water */}
-        <path d="M0 95 Q50 88 100 95 Q150 102 200 95 Q250 88 300 95 Q350 102 400 95 L400 120 L0 120 Z" fill="rgba(49,116,143,0.15)" />
-        <path d="M0 102 Q60 96 120 102 Q180 108 240 102 Q300 96 360 102 L400 102 L400 120 L0 120 Z" fill="rgba(49,116,143,0.08)" />
-
-        {/* Ship hull */}
-        <path d="M60 88 L80 68 L320 68 L340 88 Q280 100 200 100 Q120 100 60 88 Z" fill="rgba(15,118,110,0.7)" />
-        <path d="M80 68 L320 68 L320 74 L80 74 Z" fill="rgba(15,118,110,0.85)" />
-
-        {/* Containers row 1 */}
-        <rect x="100" y="42" width="32" height="26" rx="2" fill="#0f766e" opacity="0.9" />
-        <rect x="136" y="42" width="32" height="26" rx="2" fill="#31748f" opacity="0.85" />
-        <rect x="172" y="42" width="32" height="26" rx="2" fill="#0f766e" opacity="0.95" />
-        <rect x="208" y="42" width="32" height="26" rx="2" fill="#31748f" opacity="0.8" />
-        <rect x="244" y="42" width="32" height="26" rx="2" fill="#0f766e" opacity="0.9" />
-        <rect x="280" y="42" width="32" height="26" rx="2" fill="#31748f" opacity="0.85" />
-
-        {/* Containers row 2 */}
-        <rect x="118" y="22" width="32" height="20" rx="2" fill="#31748f" opacity="0.75" />
-        <rect x="154" y="22" width="32" height="20" rx="2" fill="#0f766e" opacity="0.85" />
-        <rect x="190" y="22" width="32" height="20" rx="2" fill="#31748f" opacity="0.8" />
-        <rect x="226" y="22" width="32" height="20" rx="2" fill="#0f766e" opacity="0.75" />
-        <rect x="262" y="22" width="32" height="20" rx="2" fill="#31748f" opacity="0.9" />
-
-        {/* Crane */}
-        <rect x="330" y="10" width="6" height="58" rx="2" fill="rgba(15,118,110,0.6)" />
-        <rect x="310" y="8" width="50" height="5" rx="2" fill="rgba(15,118,110,0.5)" />
-        <line x1="315" y1="13" x2="315" y2="30" stroke="rgba(15,118,110,0.3)" strokeWidth="1.5" />
-        <line x1="325" y1="13" x2="325" y2="26" stroke="rgba(15,118,110,0.3)" strokeWidth="1.5" />
-        <line x1="335" y1="13" x2="335" y2="22" stroke="rgba(15,118,110,0.3)" strokeWidth="1.5" />
-
-        {/* Ship deck detail */}
-        <rect x="90" y="66" width="20" height="8" rx="1" fill="rgba(255,255,255,0.15)" />
-        <rect x="310" y="66" width="20" height="8" rx="1" fill="rgba(255,255,255,0.15)" />
-
-        {/* Small waves */}
-        <path d="M0 98 Q20 94 40 98 Q60 102 80 98" stroke="rgba(49,116,143,0.2)" strokeWidth="1.5" fill="none" />
-        <path d="M320 98 Q340 94 360 98 Q380 102 400 98" stroke="rgba(49,116,143,0.2)" strokeWidth="1.5" fill="none" />
-      </svg>
-    </Box>
-  );
-}
-
 const features = [
-  { icon: '📦', text: 'Track quotations in real-time' },
-  { icon: '💱', text: 'Compare freight rates across currencies' },
-  { icon: '⚡', text: 'Streamline approvals with instant alerts' },
+  { icon: <LocalShipping sx={{ fontSize: 20 }} />, title: 'Freight Management', desc: 'Track and manage quotations across all entities' },
+  { icon: <CompareArrows sx={{ fontSize: 20 }} />, title: 'Rate Comparison', desc: 'Compare forwarder rates in multiple currencies' },
+  { icon: <Speed sx={{ fontSize: 20 }} />, title: 'Fast Approvals', desc: 'Streamlined approval workflow with instant alerts' },
 ];
 
 const MAX_ATTEMPTS = 5;
@@ -168,87 +125,120 @@ export default function LoginPage() {
     <Box sx={{
       minHeight: '100vh',
       display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      bgcolor: theme => theme.palette.mode === 'light' ? '#eef4f1' : 'background.default',
-      position: 'relative',
-      overflow: 'hidden',
-      px: { xs: 2, sm: 3 },
-      py: { xs: 3, sm: 5 },
+      bgcolor: 'background.default',
     }}>
-      <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        <Box sx={{
-          position: 'absolute',
-          inset: 0,
-          background: theme => theme.palette.mode === 'light'
-            ? 'radial-gradient(ellipse at 50% 0%, rgba(15,118,110,0.08) 0%, transparent 60%)'
-            : 'radial-gradient(circle at 50% 0%, rgba(34,166,154,0.12), transparent 42%)',
-        }} />
+      {/* Left panel - branding */}
+      <Box sx={{
+        flex: 1,
+        display: { xs: 'none', md: 'flex' },
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        bgcolor: 'primary.main',
+        position: 'relative',
+        overflow: 'hidden',
+        px: 6,
+      }}>
+        <Box sx={{ position: 'absolute', inset: 0, opacity: 0.06, backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+
+        <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 420, textAlign: 'center' }}>
+          <Box sx={{
+            width: 72,
+            height: 72,
+            borderRadius: 2.5,
+            bgcolor: 'rgba(255,255,255,0.15)',
+            border: '2px solid rgba(255,255,255,0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mx: 'auto',
+            mb: 4,
+          }}>
+            <Box component="img" src="/logo.svg" alt="QMS" sx={{ width: 44, height: 44, filter: 'brightness(0) invert(1)' }} />
+          </Box>
+
+          <Typography variant="h3" fontWeight={800} color="#ffffff" sx={{ mb: 1.5, letterSpacing: '-0.02em' }}>
+            QMS
+          </Typography>
+          <Typography variant="h6" fontWeight={600} color="rgba(255,255,255,0.85)" sx={{ mb: 5 }}>
+            Quotation Management System
+          </Typography>
+
+          <Stack spacing={3} sx={{ textAlign: 'left' }}>
+            {features.map((f) => (
+              <Box key={f.title} sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <Box sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 1.5,
+                  bgcolor: 'rgba(255,255,255,0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  flexShrink: 0,
+                }}>
+                  {f.icon}
+                </Box>
+                <Box>
+                  <Typography variant="body1" fontWeight={700} color="#ffffff">
+                    {f.title}
+                  </Typography>
+                  <Typography variant="body2" color="rgba(255,255,255,0.7)" sx={{ mt: 0.25 }}>
+                    {f.desc}
+                  </Typography>
+                </Box>
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+
+        <Typography variant="caption" color="rgba(255,255,255,0.5)" sx={{ position: 'absolute', bottom: 3, left: 0, right: 0, textAlign: 'center' }}>
+          Engineered by Ali Raza
+        </Typography>
       </Box>
 
-      <Card sx={{
-        width: '100%',
-        maxWidth: 448,
+      {/* Right panel - login form */}
+      <Box sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        px: { xs: 3, sm: 4, md: 6 },
+        py: 4,
         position: 'relative',
-        border: '1px solid',
-        borderColor: theme => theme.palette.mode === 'light' ? 'rgba(15,118,110,0.18)' : 'divider',
-        borderRadius: 2.5,
-        overflow: 'hidden',
-        bgcolor: 'background.paper',
-        boxShadow: theme => theme.palette.mode === 'light'
-          ? '0 28px 70px -54px rgba(23,32,31,0.8)'
-          : '0 28px 70px -54px rgba(0,0,0,0.95)',
       }}>
-        <FreightIllustration />
+        <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
+          <Tooltip title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+            <IconButton onClick={toggleTheme} size="small" sx={{ color: 'text.secondary' }} aria-label="Toggle theme">
+              {theme === 'light' ? <DarkMode fontSize="small" /> : <LightMode fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        </Box>
 
-        <CardContent sx={{ p: { xs: 3, sm: 4 }, pt: { xs: 2.5, sm: 3 } }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, mb: 3 }}>
+        <Box sx={{ width: '100%', maxWidth: 400 }}>
+          <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1.5, mb: 4 }}>
             <Box sx={{
-              width: 52,
-              height: 52,
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'rgba(15,118,110,0.18)',
-              bgcolor: theme => theme.palette.mode === 'light' ? 'rgba(15,118,110,0.07)' : 'rgba(34,166,154,0.10)',
+              width: 40,
+              height: 40,
+              borderRadius: 1.5,
+              bgcolor: 'primary.main',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 12px 26px -22px rgba(15,118,110,0.9)',
             }}>
-              <Box component="img" src="/logo.svg" alt="QMS logo" sx={{ width: 34, height: 34 }} />
+              <Box component="img" src="/logo.svg" alt="QMS" sx={{ width: 24, height: 24, filter: 'brightness(0) invert(1)' }} />
             </Box>
-
-            <Tooltip title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
-              <IconButton
-                onClick={toggleTheme}
-                aria-label="Toggle theme"
-                size="small"
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  bgcolor: 'background.default',
-                  color: 'text.secondary',
-                  borderRadius: 1.25,
-                  '&:hover': { bgcolor: 'action.hover', color: 'primary.main' },
-                }}
-              >
-                {theme === 'light' ? <DarkMode fontSize="small" /> : <LightMode fontSize="small" />}
-              </IconButton>
-            </Tooltip>
+            <Typography fontWeight={800} fontSize="1.1rem">QMS</Typography>
           </Box>
 
-          <Box sx={{ mb: 3.25 }}>
-            <Typography variant="overline" color="primary.main" fontWeight={850} sx={{ letterSpacing: 0.4 }}>
-              QMS
-            </Typography>
-            <Typography variant="h5" fontWeight={850} sx={{ mt: 0.25 }}>
-              Quotation Manager
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, maxWidth: 340 }}>
-              Sign in to manage freight quotations and approvals.
-            </Typography>
-          </Box>
+          <Typography variant="h5" fontWeight={800} sx={{ mb: 0.5 }}>
+            Welcome back
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3.5 }}>
+            Sign in to manage freight quotations and approvals.
+          </Typography>
 
           <Box component="form" onSubmit={handleSubmit}>
             <Stack spacing={2.2}>
@@ -291,7 +281,7 @@ export default function LoginPage() {
                 />
               </LoginField>
 
-              {error && <Alert severity="error" sx={{ borderRadius: 1.5 }}>{error}</Alert>}
+              {error && <Alert severity="error" sx={{ borderRadius: 1 }}>{error}</Alert>}
 
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: -1.2 }}>
                 <Button
@@ -306,9 +296,10 @@ export default function LoginPage() {
               <Button type="submit" variant="contained" size="large" disabled={loading} fullWidth sx={{
                 mt: 0.5,
                 height: 48,
-                fontWeight: 800,
+                fontWeight: 700,
                 borderRadius: 1.5,
-                boxShadow: '0 18px 34px -24px rgba(15,118,110,0.95)',
+                boxShadow: '0 4px 14px -4px rgba(15,118,110,0.5)',
+                '&:hover': { boxShadow: '0 6px 20px -4px rgba(15,118,110,0.6)' },
               }}>
                 {loading ? <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> : null}
                 {loading ? 'Signing in...' : 'Sign in'}
@@ -316,21 +307,10 @@ export default function LoginPage() {
             </Stack>
           </Box>
 
-          <Typography variant="caption" display="block" color="text.secondary" mt={3.5} textAlign="center">
+          <Typography variant="caption" display="block" color="text.secondary" mt={4} textAlign="center">
             Engineered by <Typography component="span" fontWeight={800} color="text.primary">Ali Raza</Typography>
           </Typography>
-        </CardContent>
-      </Card>
-
-      <Box sx={{ display: 'flex', gap: { xs: 1.5, sm: 3 }, mt: 4, maxWidth: 520, justifyContent: 'center', flexWrap: 'wrap' }}>
-        {features.map((f) => (
-          <Box key={f.text} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Typography fontSize={16}>{f.icon}</Typography>
-            <Typography variant="body2" color="text.secondary" fontWeight={550} whiteSpace="nowrap">
-              {f.text}
-            </Typography>
-          </Box>
-        ))}
+        </Box>
       </Box>
 
       <Dialog open={forgotOpen} onClose={() => setForgotOpen(false)} maxWidth="xs" fullWidth>
@@ -345,7 +325,7 @@ export default function LoginPage() {
         </DialogTitle>
         <DialogContent>
           {resetSent ? (
-            <Alert severity="success" sx={{ borderRadius: 1.5 }}>
+            <Alert severity="success" sx={{ borderRadius: 1 }}>
               If an account exists for <strong>{resetEmail.trim()}</strong>, a password reset link has been sent. Check your inbox.
             </Alert>
           ) : (
@@ -369,8 +349,8 @@ export default function LoginPage() {
                     fullWidth
                   />
                 </Box>
-                {resetError && <Alert severity="error" sx={{ borderRadius: 1.5 }}>{resetError}</Alert>}
-                <Button type="submit" variant="contained" size="large" disabled={resetLoading} fullWidth sx={{ height: 46, fontWeight: 800, borderRadius: 1.5 }}>
+                {resetError && <Alert severity="error" sx={{ borderRadius: 1 }}>{resetError}</Alert>}
+                <Button type="submit" variant="contained" size="large" disabled={resetLoading} fullWidth sx={{ height: 46, fontWeight: 700, borderRadius: 1.5 }}>
                   {resetLoading && <CircularProgress size={18} color="inherit" sx={{ mr: 1 }} />}
                   {resetLoading ? 'Sending...' : 'Send reset link'}
                 </Button>
