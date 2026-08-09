@@ -46,16 +46,14 @@ language sql
 security definer
 set search_path = public
 as $$
-  select
-    lower(coalesce(auth.jwt() ->> 'email', '')) = 'admin@netceedmea.com'
-    or exists (
-      select 1
-      from public.app_users u
-      where lower(u.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-        and u.active = true
-        and u.role = 'Admin'
-        and 'users' = any(u.modules)
-    );
+  select exists (
+    select 1
+    from public.app_users u
+    where lower(u.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      and u.active = true
+      and u.role = 'Admin'
+      and 'users' = any(u.modules)
+  );
 $$;
 
 alter table public.app_users enable row level security;
