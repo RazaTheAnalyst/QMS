@@ -1,18 +1,20 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ENTITIES, calculateAwardSavings, convertCurrency } from '../types';
 import { ADMIN_EMAIL } from '../types';
-import type { Quotation, Forwarder } from '../types';
+import type { Quotation, Forwarder, DashboardFilters } from '../types';
 import { useAuth } from '../auth';
 import { useTheme } from '../theme';
 import { formatCurrency } from '@/lib/utils';
 import {
-  Box, Card, CardContent, Typography, Grid, LinearProgress, Chip,
+  Box, Card, CardContent, Typography, Grid, LinearProgress, Chip, TextField,
+  FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material';
-import {
-  DescriptionOutlined, AttachMoneyOutlined, LocalShippingOutlined,
-  TrendingUpOutlined, AccountBalanceWalletOutlined,
-} from '@mui/icons-material';
+import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
+import AttachMoneyOutlined from '@mui/icons-material/AttachMoneyOutlined';
+import LocalShippingOutlined from '@mui/icons-material/LocalShippingOutlined';
+import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
+import AccountBalanceWalletOutlined from '@mui/icons-material/AccountBalanceWalletOutlined';
 
 interface DashboardProps {
   quotations: Quotation[];
@@ -73,15 +75,58 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
   const { theme } = useTheme();
   const isAdmin = user?.email === ADMIN_EMAIL;
   const safeNum = (v: number) => (Number.isFinite(v) ? v : 0);
+  const [dateFilters, setDateFilters] = useState<DashboardFilters>({ dateFrom: '', dateTo: '' });
+  const [selectedMonth, setSelectedMonth] = useState('');
 
   const activeQuotations = useMemo(() =>
     quotations.filter(q => q.status !== 'Awaiting Approval' && q.status !== 'Rejected'),
     [quotations]
   );
 
+  const availableMonths = useMemo(() => {
+    const monthSet = new Set<string>();
+    for (const q of activeQuotations) {
+      if (q.createdAt) {
+        const d = new Date(q.createdAt);
+        if (!Number.isNaN(d.getTime())) {
+          monthSet.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+        }
+      }
+    }
+    return Array.from(monthSet).sort().reverse();
+  }, [activeQuotations]);
+
+  const effectiveDateFilters = useMemo(() => {
+    if (selectedMonth) {
+      const parts = selectedMonth.split('-').map(Number);
+      const year = parts[0]!;
+      const month = parts[1]!;
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0, 23, 59, 59, 999);
+      return {
+        dateFrom: firstDay.toISOString().slice(0, 10),
+        dateTo: lastDay.toISOString().slice(0, 10),
+      };
+    }
+    return dateFilters;
+  }, [selectedMonth, dateFilters]);
+
+  const dateFilteredQuotations = useMemo(() => {
+    const { dateFrom, dateTo } = effectiveDateFilters;
+    if (!dateFrom && !dateTo) return activeQuotations;
+    const from = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : -Infinity;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59.999').getTime() : Infinity;
+    return activeQuotations.filter(q => {
+      if (!q.createdAt) return false;
+      const ts = new Date(q.createdAt).getTime();
+      if (Number.isNaN(ts)) return false;
+      return ts >= from && ts <= to;
+    });
+  }, [activeQuotations, effectiveDateFilters]);
+
   const poQuotations = useMemo(() =>
-    activeQuotations.filter(q => !q.excludedFromPO),
-    [activeQuotations]
+    dateFilteredQuotations.filter(q => !q.excludedFromPO),
+    [dateFilteredQuotations]
   );
 
   const pendingApprovalsCount = useMemo(() =>
@@ -159,7 +204,54 @@ export default function Dashboard({ quotations, forwarders, displayCurrency }: D
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        {(dateFilters.dateFrom || dateFilters.dateTo || selectedMonth) && (
+          <Chip
+            label="Clear filters"
+            size="small"
+            onClick={() => { setDateFilters({ dateFrom: '', dateTo: '' }); setSelectedMonth(''); }}
+            onDelete={() => { setDateFilters({ dateFrom: '', dateTo: '' }); setSelectedMonth(''); }}
+            sx={{ fontWeight: 600 }}
+          />
+        )}
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel shrink>Month</InputLabel>
+          <Select
+            value={selectedMonth}
+            label="Month"
+            displayEmpty
+            onChange={e => {
+              const val = e.target.value;
+              setSelectedMonth(val);
+              if (val) setDateFilters({ dateFrom: '', dateTo: '' });
+            }}
+          >
+            <MenuItem value=""><em>All months</em></MenuItem>
+            {availableMonths.map(m => {
+              const [y, mo] = m.split('-');
+              const label = new Date(Number(y), Number(mo) - 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+              return <MenuItem key={m} value={m}>{label}</MenuItem>;
+            })}
+          </Select>
+        </FormControl>
+        <TextField
+          type="date"
+          size="small"
+          label="Created from"
+          value={dateFilters.dateFrom}
+          onChange={e => { setSelectedMonth(''); setDateFilters(f => ({ ...f, dateFrom: e.target.value })); }}
+          InputLabelProps={{ shrink: true }}
+          sx={{ minWidth: 160 }}
+        />
+        <TextField
+          type="date"
+          size="small"
+          label="Created to"
+          value={dateFilters.dateTo}
+          onChange={e => { setSelectedMonth(''); setDateFilters(f => ({ ...f, dateTo: e.target.value })); }}
+          InputLabelProps={{ shrink: true }}
+          sx={{ minWidth: 160 }}
+        />
         {isAdmin && pendingApprovalsCount > 0 && (
           <Chip
             component={Link}

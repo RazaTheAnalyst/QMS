@@ -1,47 +1,20 @@
 import { useState } from 'react';
-import type { SxProps, Theme } from '@mui/material/styles';
 import { useAuth } from '../auth';
 import { useTheme } from '../theme';
+import { loginFieldSx } from '@/lib/loginFieldSx';
 import {
   Box, Card, CardContent, Typography, TextField, Button,
-  InputAdornment, IconButton, Alert, CircularProgress, Stack, Tooltip
+  InputAdornment, IconButton, Alert, CircularProgress, Stack, Tooltip,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
-import {
-  Mail, Lock, Visibility, VisibilityOff, DarkMode, LightMode,
-} from '@mui/icons-material';
-
-const loginFieldSx: SxProps<Theme> = {
-  '& .MuiOutlinedInput-root': {
-    minHeight: 48,
-    bgcolor: theme => theme.palette.mode === 'light' ? 'rgba(255,255,255,0.82)' : 'rgba(23,29,27,0.82)',
-    borderRadius: 1.5,
-    '& fieldset': {
-      borderColor: theme => theme.palette.mode === 'light' ? 'rgba(15,118,110,0.18)' : 'rgba(34,166,154,0.22)',
-    },
-    '&:hover fieldset': {
-      borderColor: 'primary.main',
-    },
-    '&.Mui-focused fieldset': {
-      borderWidth: 1,
-      borderColor: 'primary.main',
-      boxShadow: theme => theme.palette.mode === 'light'
-        ? '0 0 0 3px rgba(15,118,110,0.10)'
-        : '0 0 0 3px rgba(34,166,154,0.14)',
-    },
-  },
-  '& input': {
-    fontWeight: 650,
-    letterSpacing: 0,
-    color: theme => theme.palette.mode === 'light' ? 'rgba(0,0,0,0.87)' : 'rgba(255,255,255,0.87)',
-  },
-  '& input:-webkit-autofill, & input:-webkit-autofill:hover, & input:-webkit-autofill:focus, & input:-webkit-autofill:active': {
-    WebkitTextFillColor: 'currentColor',
-    caretColor: 'currentColor',
-    WebkitBoxShadow: theme => `0 0 0 1000px ${theme.palette.mode === 'light' ? '#ffffff' : '#171d1b'} inset !important`,
-    boxShadow: theme => `0 0 0 1000px ${theme.palette.mode === 'light' ? '#ffffff' : '#171d1b'} inset !important`,
-    transition: 'background-color 9999s ease-out 0s',
-  },
-};
+import Mail from '@mui/icons-material/Mail';
+import Lock from '@mui/icons-material/Lock';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import DarkMode from '@mui/icons-material/DarkMode';
+import LightMode from '@mui/icons-material/LightMode';
+import Key from '@mui/icons-material/Key';
+import CloseIcon from '@mui/icons-material/Close';
 
 function LoginField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -62,7 +35,7 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 60_000;
 
 export default function LoginPage() {
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -71,6 +44,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState(email);
+  const [resetError, setResetError] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +84,31 @@ export default function LoginPage() {
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openForgot = () => {
+    setResetEmail(email);
+    setResetError('');
+    setResetSent(false);
+    setForgotOpen(true);
+  };
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetLoading(true);
+    try {
+      const result = await resetPassword(resetEmail.trim());
+      if (result.error) {
+        setResetError(result.error);
+      } else {
+        setResetSent(true);
+      }
+    } catch {
+      setResetError('An unexpected error occurred. Please try again.');
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -242,6 +245,16 @@ export default function LoginPage() {
 
               {error && <Alert severity="error" sx={{ borderRadius: 1.5 }}>{error}</Alert>}
 
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: -1.2 }}>
+                <Button
+                  onClick={openForgot}
+                  size="small"
+                  sx={{ textTransform: 'none', fontWeight: 650, color: 'primary.main', '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' } }}
+                >
+                  Forgot password?
+                </Button>
+              </Box>
+
               <Button type="submit" variant="contained" size="large" disabled={loading} fullWidth sx={{
                 mt: 0.5,
                 height: 48,
@@ -260,6 +273,58 @@ export default function LoginPage() {
           </Typography>
         </CardContent>
       </Card>
+
+      <Dialog open={forgotOpen} onClose={() => setForgotOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Key sx={{ fontSize: 20, color: 'primary.main' }} />
+            Reset password
+          </Box>
+          <IconButton size="small" onClick={() => setForgotOpen(false)} aria-label="Close">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {resetSent ? (
+            <Alert severity="success" sx={{ borderRadius: 1.5 }}>
+              If an account exists for <strong>{resetEmail.trim()}</strong>, a password reset link has been sent. Check your inbox.
+            </Alert>
+          ) : (
+            <Box component="form" onSubmit={handleResetSubmit}>
+              <Stack spacing={2.2} sx={{ mt: 0.5 }}>
+                <Box>
+                  <Typography variant="body2" component="label" sx={{ display: 'block', mb: 0.75, fontWeight: 700, color: 'text.primary' }}>
+                    Email
+                  </Typography>
+                  <TextField
+                    type="email"
+                    placeholder="you@company.com"
+                    value={resetEmail}
+                    onChange={e => setResetEmail(e.target.value)}
+                    required
+                    autoFocus
+                    sx={loginFieldSx}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><Mail fontSize="small" color="action" /></InputAdornment>,
+                    }}
+                    fullWidth
+                  />
+                </Box>
+                {resetError && <Alert severity="error" sx={{ borderRadius: 1.5 }}>{resetError}</Alert>}
+                <Button type="submit" variant="contained" size="large" disabled={resetLoading} fullWidth sx={{ height: 46, fontWeight: 800, borderRadius: 1.5 }}>
+                  {resetLoading && <CircularProgress size={18} color="inherit" sx={{ mr: 1 }} />}
+                  {resetLoading ? 'Sending...' : 'Send reset link'}
+                </Button>
+              </Stack>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button size="small" onClick={() => setForgotOpen(false)} sx={{ textTransform: 'none' }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

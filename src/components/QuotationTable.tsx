@@ -4,19 +4,32 @@ import {
 } from '../types';
 import type { Quotation, Forwarder } from '../types';
 import { useAuth } from '../auth';
-import { getModeIcon, formatCurrency } from '@/lib/utils';
+import { getModeIcon, formatCurrency, displayName } from '@/lib/utils';
 import {
   Alert, AlertTitle,
   Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Button, Chip, Tabs, Tab, Dialog, DialogTitle, DialogContent,
   Select, MenuItem, FormControl, Card, CardContent, Typography,
   useMediaQuery, useTheme, Switch, FormControlLabel, Tooltip,
+  TableSortLabel, TablePagination,
 } from '@mui/material';
-import {
-  Description, Schedule, Close as XCircle, Search, Download,
-  Check, Star, Warning, Edit, Delete, Lock, Send,
-  AttachMoney, ArrowForward, AccessTime, StarBorder, Inventory,
-} from '@mui/icons-material';
+import Description from '@mui/icons-material/Description';
+import Schedule from '@mui/icons-material/Schedule';
+import XCircle from '@mui/icons-material/Close';
+import Search from '@mui/icons-material/Search';
+import Download from '@mui/icons-material/Download';
+import Check from '@mui/icons-material/Check';
+import Star from '@mui/icons-material/Star';
+import Warning from '@mui/icons-material/Warning';
+import Edit from '@mui/icons-material/Edit';
+import Delete from '@mui/icons-material/Delete';
+import Lock from '@mui/icons-material/Lock';
+import Send from '@mui/icons-material/Send';
+import AttachMoney from '@mui/icons-material/AttachMoney';
+import ArrowForward from '@mui/icons-material/ArrowForward';
+import AccessTime from '@mui/icons-material/AccessTime';
+import StarBorder from '@mui/icons-material/StarBorder';
+import Inventory from '@mui/icons-material/Inventory';
 
 const ENTITY_COLORS: Record<string, string> = {
   UAE: '#7c3aed',
@@ -66,6 +79,34 @@ const tableHeaderCellSx = {
   zIndex: 4,
 };
 
+type SortField = 'entity' | 'supplierName' | 'supplierPO' | 'poValue' | 'origin' | 'destination' | 'mode' | 'status' | 'etd' | 'eta' | 'percentage' | 'savings';
+
+function SortableHeaderCell({ field, align, active, direction, onToggle, children }: {
+  field: SortField;
+  align?: 'left' | 'right';
+  active: boolean;
+  direction: 'asc' | 'desc' | false;
+  onToggle: (field: SortField) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <TableCell
+      align={align}
+      sortDirection={direction}
+      sx={tableHeaderCellSx}
+    >
+      <TableSortLabel
+        active={active}
+        direction={direction === false ? 'asc' : direction}
+        onClick={() => onToggle(field)}
+        sx={{ '& .MuiTableSortLabel-icon': { color: `#2563eb99 !important` } }}
+      >
+        {children}
+      </TableSortLabel>
+    </TableCell>
+  );
+}
+
 const statusTabs = [
   {
     value: 0,
@@ -96,12 +137,6 @@ const statusTabs = [
     bg: 'rgba(22,130,86,0.10)',
   },
 ];
-
-function displayName(value?: string) {
-  if (!value) return '-';
-  const name = value.split('@')[0]?.replace(/[._-]+/g, ' ').trim();
-  return name ? name.replace(/\b\w/g, char => char.toUpperCase()) : value;
-}
 
 function formatStamp(date?: string) {
   if (!date) return '-';
@@ -206,6 +241,57 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
     }),
     [quotations, activeTab, isAdmin, searchActive]
   );
+
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  const sortValue = useCallback((q: Quotation, field: SortField): string | number => {
+    switch (field) {
+      case 'entity': return q.entity;
+      case 'supplierName': return q.supplierName.toLowerCase();
+      case 'supplierPO': return q.supplierPO.toLowerCase();
+      case 'poValue': return q.poValue;
+      case 'origin': return (q.origin || '').toLowerCase();
+      case 'destination': return (q.destination || '').toLowerCase();
+      case 'mode': return q.mode.toLowerCase();
+      case 'status': return q.status;
+      case 'etd': return q.etd || '';
+      case 'eta': return q.eta || '';
+      case 'percentage': return Number.isFinite(q.percentage) ? q.percentage : 0;
+      case 'savings': return getEffectiveSavings(q) ?? 0;
+    }
+  }, []);
+
+  const toggleSort = useCallback((field: SortField) => {
+    setPage(0);
+    setSortField(prev => {
+      if (prev === field) {
+        setSortDir(dir => (dir === 'asc' ? 'desc' : 'asc'));
+        return prev;
+      }
+      setSortDir('asc');
+      return field;
+    });
+  }, []);
+
+  const sortedQuotations = useMemo(() => {
+    if (!sortField) return displayedQuotations;
+    const dirMultiplier = sortDir === 'asc' ? 1 : -1;
+    return [...displayedQuotations].sort((a, b) => {
+      const av = sortValue(a, sortField);
+      const bv = sortValue(b, sortField);
+      if (typeof av === 'number' && typeof bv === 'number') {
+        return (av - bv) * dirMultiplier;
+      }
+      return String(av).localeCompare(String(bv)) * dirMultiplier;
+    });
+  }, [displayedQuotations, sortField, sortDir, sortValue]);
+
+  const maxPage = Math.max(0, Math.ceil(sortedQuotations.length / rowsPerPage) - 1);
+  const safePage = Math.min(page, maxPage);
+  const pageQuotations = sortedQuotations.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage);
 
   const exportToExcel = useCallback(async () => {
     try {
@@ -331,22 +417,22 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
             <TableHead>
               <TableRow sx={{ height: 42 }}>
                 <TableCell sx={{ ...tableHeaderCellSx, width: 32 }}></TableCell>
-                <TableCell sx={tableHeaderCellSx}>Entity</TableCell>
-                <TableCell sx={tableHeaderCellSx}>Supplier</TableCell>
-                <TableCell sx={tableHeaderCellSx}>PO</TableCell>
-                <TableCell align="right" sx={tableHeaderCellSx}>PO Value</TableCell>
-                <TableCell sx={tableHeaderCellSx}>Origin</TableCell>
-                <TableCell sx={tableHeaderCellSx}>Dest</TableCell>
-                <TableCell sx={tableHeaderCellSx}>Mode</TableCell>
-                <TableCell sx={tableHeaderCellSx}>Status</TableCell>
-                <TableCell sx={tableHeaderCellSx}>ETD</TableCell>
-                <TableCell sx={tableHeaderCellSx}>ETA</TableCell>
-                <TableCell align="right" sx={tableHeaderCellSx}>Freight %</TableCell>
-                <TableCell align="right" sx={tableHeaderCellSx}>Savings</TableCell>
+                <SortableHeaderCell field="entity" active={sortField === 'entity'} direction={sortField === 'entity' ? sortDir : false} onToggle={toggleSort}>Entity</SortableHeaderCell>
+                <SortableHeaderCell field="supplierName" active={sortField === 'supplierName'} direction={sortField === 'supplierName' ? sortDir : false} onToggle={toggleSort}>Supplier</SortableHeaderCell>
+                <SortableHeaderCell field="supplierPO" active={sortField === 'supplierPO'} direction={sortField === 'supplierPO' ? sortDir : false} onToggle={toggleSort}>PO</SortableHeaderCell>
+                <SortableHeaderCell field="poValue" align="right" active={sortField === 'poValue'} direction={sortField === 'poValue' ? sortDir : false} onToggle={toggleSort}>PO Value</SortableHeaderCell>
+                <SortableHeaderCell field="origin" active={sortField === 'origin'} direction={sortField === 'origin' ? sortDir : false} onToggle={toggleSort}>Origin</SortableHeaderCell>
+                <SortableHeaderCell field="destination" active={sortField === 'destination'} direction={sortField === 'destination' ? sortDir : false} onToggle={toggleSort}>Dest</SortableHeaderCell>
+                <SortableHeaderCell field="mode" active={sortField === 'mode'} direction={sortField === 'mode' ? sortDir : false} onToggle={toggleSort}>Mode</SortableHeaderCell>
+                <SortableHeaderCell field="status" active={sortField === 'status'} direction={sortField === 'status' ? sortDir : false} onToggle={toggleSort}>Status</SortableHeaderCell>
+                <SortableHeaderCell field="etd" active={sortField === 'etd'} direction={sortField === 'etd' ? sortDir : false} onToggle={toggleSort}>ETD</SortableHeaderCell>
+                <SortableHeaderCell field="eta" active={sortField === 'eta'} direction={sortField === 'eta' ? sortDir : false} onToggle={toggleSort}>ETA</SortableHeaderCell>
+                <SortableHeaderCell field="percentage" align="right" active={sortField === 'percentage'} direction={sortField === 'percentage' ? sortDir : false} onToggle={toggleSort}>Freight %</SortableHeaderCell>
+                <SortableHeaderCell field="savings" align="right" active={sortField === 'savings'} direction={sortField === 'savings' ? sortDir : false} onToggle={toggleSort}>Savings</SortableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {displayedQuotations.length === 0 ? (
+              {pageQuotations.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={13} sx={{ textAlign: 'center', py: 6 }}>
                     <Search sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
@@ -355,7 +441,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                   </TableCell>
                 </TableRow>
               ) : (
-                displayedQuotations.map(q => {
+                pageQuotations.map(q => {
                   const entityColor = ENTITY_COLORS[q.entity] || '#66736f';
                   const statusStyle = getStatusStyle(q.status, muiTheme.palette.mode);
                   const savings = getEffectiveSavings(q);
@@ -477,7 +563,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
 
       {isMobile && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {displayedQuotations.length === 0 ? (
+          {pageQuotations.length === 0 ? (
             <Card sx={{ textAlign: 'center', py: 6 }}>
               <CardContent>
                 <Search sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
@@ -486,7 +572,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
               </CardContent>
             </Card>
           ) : (
-            displayedQuotations.map(q => {
+            pageQuotations.map(q => {
               const entityColor = ENTITY_COLORS[q.entity] || '#66736f';
                   const statusStyle = getStatusStyle(q.status, muiTheme.palette.mode);
               const savings = getEffectiveSavings(q);
@@ -568,6 +654,24 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
           )}
         </Box>
       )}
+
+      <TablePagination
+        component="div"
+        count={sortedQuotations.length}
+        page={safePage}
+        onPageChange={(_, p) => setPage(p)}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+        rowsPerPageOptions={[10, 25, 50, 100]}
+        labelRowsPerPage="Rows per page"
+        sx={{
+          '& .MuiTablePagination-toolbar': { minHeight: 48, pl: 1 },
+          '& .MuiTablePagination-select': { fontSize: '0.8125rem' },
+        }}
+      />
 
       <Dialog open={!!currentQuotation} onClose={() => setDetailQuotation(null)} maxWidth="md" fullWidth
         sx={{ '& .MuiDialog-paper': { borderRadius: 2, overflow: 'hidden' } }}>

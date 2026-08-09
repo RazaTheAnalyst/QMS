@@ -1,4 +1,4 @@
-import type { Quotation, QuotationInput, Forwarder, AppUser, AppUserInput, AppModule, UserRole } from './types';
+import type { Quotation, QuotationInput, Quote, Forwarder, AppUser, AppUserInput, AppModule, UserRole } from './types';
 import { supabase } from './supabase';
 import { calculateAwardSavings, convertCurrency } from './types';
 
@@ -9,6 +9,7 @@ interface QuotationRow {
   supplier_name: string | null;
   supplier_po: string | null;
   po_value: number | null;
+  po_value_currency: string | null;
   origin: string | null;
   destination: string | null;
   mode: string | null;
@@ -23,6 +24,11 @@ interface QuotationRow {
   eta: string | null;
   status: string | null;
   savings: number | null;
+  created_by: string | null;
+  created_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  excluded_from_po: boolean | null;
 }
 
 interface ForwarderRow {
@@ -44,90 +50,94 @@ interface AppUserRow {
   updated_at: string | null;
 }
 
-// --- Mappers ---
-function rowToQuotation(row: QuotationRow): Quotation {
-  let parsedQuotes: { forwarder: string; quotedAmount: number; currency?: string }[] = [];
-  let poValueCurrency = 'AED';
-  let createdBy = '';
-  let createdAt = '';
-  let approvedBy = '';
-  let approvedAt = '';
-  let excludedFromPO = false;
+// --- Quotes blob helpers ---
+// Legacy rows may keep quotation metadata inside the `quotes` JSON text column.
+// New rows store that metadata in dedicated columns; the blob only holds items.
+interface QuotesBlob {
+  poValueCurrency: string;
+  createdBy: string;
+  createdAt: string;
+  approvedBy: string;
+  approvedAt: string;
+  excludedFromPO: boolean;
+  items: Quote[];
+}
 
-  if (row.quotes != null) {
-    if (typeof row.quotes === 'string') {
-      try {
-        const parsed = JSON.parse(row.quotes);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          poValueCurrency = String(parsed.poValueCurrency ?? 'AED');
-          createdBy = String(parsed.createdBy ?? '');
-          createdAt = String(parsed.createdAt ?? '');
-          approvedBy = String(parsed.approvedBy ?? '');
-          approvedAt = String(parsed.approvedAt ?? '');
-          excludedFromPO = parsed.excludedFromPO === true;
-          const items = parsed.items;
-          if (Array.isArray(items)) {
-            parsedQuotes = items.map((q: Record<string, unknown>) => ({
-              forwarder: String(q.forwarder ?? ''),
-              quotedAmount: Number(q.quotedAmount ?? q.quoted_amount ?? 0),
-              currency: String(q.currency ?? 'AED'),
-            }));
-          }
-        } else if (Array.isArray(parsed)) {
-          parsedQuotes = parsed.map((q: Record<string, unknown>) => ({
-            forwarder: String(q.forwarder ?? ''),
-            quotedAmount: Number(q.quotedAmount ?? q.quoted_amount ?? 0),
-            currency: String(q.currency ?? 'AED'),
-          }));
-        }
-      } catch {
-        // quotes string is not valid JSON, leave as empty
+function readQuoteItems(items: unknown): Quote[] {
+  if (!Array.isArray(items)) return [];
+  return items.map((q) => {
+    const obj = q as Record<string, unknown>;
+    return {
+      forwarder: String(obj.forwarder ?? ''),
+      quotedAmount: Number(obj.quotedAmount ?? obj.quoted_amount ?? 0),
+      currency: String(obj.currency ?? 'AED'),
+    };
+  });
+}
+
+function parseQuotesBlob(quotes: unknown): QuotesBlob {
+  const parsed: QuotesBlob = {
+    poValueCurrency: 'AED',
+    createdBy: '',
+    createdAt: '',
+    approvedBy: '',
+    approvedAt: '',
+    excludedFromPO: false,
+    items: [],
+  };
+
+  if (quotes == null) return parsed;
+
+  if (typeof quotes === 'string') {
+    try {
+      const val = JSON.parse(quotes);
+      if (Array.isArray(val)) {
+        parsed.items = readQuoteItems(val);
+      } else if (val && typeof val === 'object') {
+        parsed.poValueCurrency = String(val.poValueCurrency ?? 'AED');
+        parsed.createdBy = String(val.createdBy ?? '');
+        parsed.createdAt = String(val.createdAt ?? '');
+        parsed.approvedBy = String(val.approvedBy ?? '');
+        parsed.approvedAt = String(val.approvedAt ?? '');
+        parsed.excludedFromPO = val.excludedFromPO === true;
+        parsed.items = readQuoteItems(val.items);
       }
-    } else if (Array.isArray(row.quotes)) {
-      parsedQuotes = row.quotes.map((q) => {
-        const obj = q as Record<string, unknown>;
-        return {
-          forwarder: String(obj.forwarder ?? ''),
-          quotedAmount: Number(obj.quotedAmount ?? obj.quoted_amount ?? 0),
-          currency: String(obj.currency ?? 'AED'),
-        };
-      });
-    } else if (typeof row.quotes === 'object' && row.quotes !== null) {
-      const obj = row.quotes as Record<string, unknown>;
-      poValueCurrency = String(obj.poValueCurrency ?? 'AED');
-      createdBy = String(obj.createdBy ?? '');
-      createdAt = String(obj.createdAt ?? '');
-      approvedBy = String(obj.approvedBy ?? '');
-      approvedAt = String(obj.approvedAt ?? '');
-      excludedFromPO = obj.excludedFromPO === true;
-      const items = obj.items;
-      if (Array.isArray(items)) {
-        parsedQuotes = items.map((q) => {
-          const qObj = q as Record<string, unknown>;
-          return {
-            forwarder: String(qObj.forwarder ?? ''),
-            quotedAmount: Number(qObj.quotedAmount ?? qObj.quoted_amount ?? 0),
-            currency: String(qObj.currency ?? 'AED'),
-          };
-        });
-      }
+    } catch {
+      // quotes string is not valid JSON, leave as empty
     }
+  } else if (Array.isArray(quotes)) {
+    parsed.items = readQuoteItems(quotes);
+  } else if (typeof quotes === 'object') {
+    const obj = quotes as Record<string, unknown>;
+    parsed.poValueCurrency = String(obj.poValueCurrency ?? 'AED');
+    parsed.createdBy = String(obj.createdBy ?? '');
+    parsed.createdAt = String(obj.createdAt ?? '');
+    parsed.approvedBy = String(obj.approvedBy ?? '');
+    parsed.approvedAt = String(obj.approvedAt ?? '');
+    parsed.excludedFromPO = obj.excludedFromPO === true;
+    parsed.items = readQuoteItems(obj.items);
   }
 
+  return parsed;
+}
+
+// --- Mappers ---
+function rowToQuotation(row: QuotationRow): Quotation {
+  const blob = parseQuotesBlob(row.quotes);
   return {
     id: row.id,
     entity: row.entity ?? '',
     supplierName: row.supplier_name ?? '',
     supplierPO: row.supplier_po ?? '',
     poValue: Number(row.po_value) || 0,
-    poValueCurrency,
+    poValueCurrency: row.po_value_currency ?? blob.poValueCurrency ?? 'AED',
     origin: row.origin ?? '',
     destination: row.destination ?? '',
     mode: row.mode ?? '',
     size: row.size ?? '',
     transitTime: row.transit_time ?? '',
     incoterms: row.incoterms ?? '',
-    quotes: parsedQuotes,
+    quotes: blob.items,
     awardedTo: row.awarded_to ?? '',
     remarks: row.remarks ?? '',
     percentage: Number(row.percentage) || 0,
@@ -135,11 +145,11 @@ function rowToQuotation(row: QuotationRow): Quotation {
     eta: row.eta ?? '',
     status: row.status ?? 'Pending',
     savings: Number(row.savings) || 0,
-    createdBy,
-    createdAt,
-    approvedBy,
-    approvedAt,
-    excludedFromPO,
+    createdBy: row.created_by ?? blob.createdBy,
+    createdAt: row.created_at ?? blob.createdAt,
+    approvedBy: row.approved_by ?? blob.approvedBy,
+    approvedAt: row.approved_at ?? blob.approvedAt,
+    excludedFromPO: row.excluded_from_po ?? blob.excludedFromPO,
   };
 }
 
@@ -175,6 +185,7 @@ function quotationInputToRow(data: QuotationInput, percentage = 0) {
     supplier_name: data.supplierName,
     supplier_po: data.supplierPO,
     po_value: data.poValue,
+    po_value_currency: data.poValueCurrency || 'AED',
     origin: data.origin,
     destination: data.destination,
     mode: data.mode,
@@ -184,11 +195,6 @@ function quotationInputToRow(data: QuotationInput, percentage = 0) {
     quotes: JSON.stringify({
       poValueCurrency: data.poValueCurrency || 'AED',
       items: data.quotes,
-      createdBy: data.createdBy ?? '',
-      createdAt: data.createdAt ?? '',
-      approvedBy: data.approvedBy ?? '',
-      approvedAt: data.approvedAt ?? '',
-      excludedFromPO: data.excludedFromPO ?? false,
     }),
     awarded_to: data.awardedTo,
     remarks: data.remarks,
@@ -197,6 +203,11 @@ function quotationInputToRow(data: QuotationInput, percentage = 0) {
     eta: data.eta ?? '',
     status: data.status ?? 'Pending',
     savings: data.savings ?? 0,
+    created_by: data.createdBy ?? '',
+    created_at: data.createdAt ?? '',
+    approved_by: data.approvedBy ?? '',
+    approved_at: data.approvedAt ?? '',
+    excluded_from_po: data.excludedFromPO ?? false,
   };
 }
 
@@ -277,60 +288,67 @@ export async function createQuotation(input: QuotationInput): Promise<Quotation>
 }
 
 export async function updateQuotationAPI(id: number, input: Partial<QuotationInput> & { percentage?: number }): Promise<Quotation> {
-  // First fetch the existing record to merge partial updates
-  const { data: existing, error: fetchError } = await supabase
-    .from('quotations')
-    .select('*')
-    .eq('id', id)
-    .single();
-  if (fetchError) throw fetchError;
-  if (!existing) throw new Error('Quotation not found');
+  // Recompute percentage/savings from the merged record only when the economic
+  // inputs (quotes/PO value/currency) change. Other partial updates write
+  // their columns directly — this is what makes status/award/approval updates
+  // safe without fetching or rewriting the whole record.
+  const recompute = input.quotes !== undefined || input.poValue !== undefined || input.poValueCurrency !== undefined;
 
-  const existingRow = existing as QuotationRow;
-  const parsedExisting = rowToQuotation(existingRow);
-
-  // Build merged data for recomputation
-  const mergedQuotes = input.quotes !== undefined ? input.quotes : parsedExisting.quotes;
-  const mergedPoValueCurrency = input.poValueCurrency !== undefined ? input.poValueCurrency : parsedExisting.poValueCurrency;
-  const mergedPoValue = input.poValue !== undefined ? input.poValue : parsedExisting.poValue;
-  const mergedAwardedTo = input.awardedTo !== undefined ? input.awardedTo : parsedExisting.awardedTo;
+  let parsedExisting: Quotation | null = null;
+  if (recompute) {
+    const { data: existing, error: fetchError } = await supabase
+      .from('quotations')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (fetchError) throw fetchError;
+    if (!existing) throw new Error('Quotation not found');
+    parsedExisting = rowToQuotation(existing as QuotationRow);
+  }
 
   const row: Record<string, unknown> = {};
   if (input.entity !== undefined) row.entity = input.entity;
   if (input.supplierName !== undefined) row.supplier_name = input.supplierName;
   if (input.supplierPO !== undefined) row.supplier_po = input.supplierPO;
   if (input.poValue !== undefined) row.po_value = input.poValue;
+  if (input.poValueCurrency !== undefined) row.po_value_currency = input.poValueCurrency;
   if (input.origin !== undefined) row.origin = input.origin;
   if (input.destination !== undefined) row.destination = input.destination;
   if (input.mode !== undefined) row.mode = input.mode;
   if (input.size !== undefined) row.size = input.size;
   if (input.transitTime !== undefined) row.transit_time = input.transitTime;
   if (input.incoterms !== undefined) row.incoterms = input.incoterms;
-  
-  row.quotes = JSON.stringify({
-    poValueCurrency: mergedPoValueCurrency || 'AED',
-    items: mergedQuotes,
-    createdBy: input.createdBy !== undefined ? input.createdBy : parsedExisting.createdBy ?? '',
-    createdAt: input.createdAt !== undefined ? input.createdAt : parsedExisting.createdAt ?? '',
-    approvedBy: input.approvedBy !== undefined ? input.approvedBy : parsedExisting.approvedBy ?? '',
-    approvedAt: input.approvedAt !== undefined ? input.approvedAt : parsedExisting.approvedAt ?? '',
-    excludedFromPO: input.excludedFromPO !== undefined ? input.excludedFromPO : parsedExisting.excludedFromPO ?? false,
-  });
-
   if (input.awardedTo !== undefined) row.awarded_to = input.awardedTo;
   if (input.remarks !== undefined) row.remarks = input.remarks;
-  if (input.percentage !== undefined) row.percentage = input.percentage;
   if (input.etd !== undefined) row.etd = input.etd;
   if (input.eta !== undefined) row.eta = input.eta;
   if (input.status !== undefined) row.status = input.status;
-  if (input.savings !== undefined) row.savings = input.savings;
+  if (input.createdBy !== undefined) row.created_by = input.createdBy;
+  if (input.createdAt !== undefined) row.created_at = input.createdAt;
+  if (input.approvedBy !== undefined) row.approved_by = input.approvedBy;
+  if (input.approvedAt !== undefined) row.approved_at = input.approvedAt;
+  if (input.excludedFromPO !== undefined) row.excluded_from_po = input.excludedFromPO;
 
-  // Recompute percentage and savings using merged data
-  if (input.quotes !== undefined || input.poValue !== undefined || input.poValueCurrency !== undefined) {
-    const percentage = computePercentage({ quotes: mergedQuotes, poValue: mergedPoValue, poValueCurrency: mergedPoValueCurrency });
-    const savings = computeSavings({ quotes: mergedQuotes, poValueCurrency: mergedPoValueCurrency, awardedTo: mergedAwardedTo }, input.savings);
-    row.percentage = percentage;
-    row.savings = savings;
+  if (input.quotes !== undefined) {
+    row.quotes = JSON.stringify({
+      poValueCurrency: parsedExisting?.poValueCurrency || input.poValueCurrency || 'AED',
+      items: input.quotes,
+    });
+  }
+
+  if (recompute && parsedExisting) {
+    const mergedQuotes = input.quotes !== undefined ? input.quotes : parsedExisting.quotes;
+    const mergedPoValueCurrency = input.poValueCurrency !== undefined ? input.poValueCurrency : parsedExisting.poValueCurrency;
+    const mergedPoValue = input.poValue !== undefined ? input.poValue : parsedExisting.poValue;
+    const mergedAwardedTo = input.awardedTo !== undefined ? input.awardedTo : parsedExisting.awardedTo;
+    row.percentage = computePercentage({ quotes: mergedQuotes, poValue: mergedPoValue, poValueCurrency: mergedPoValueCurrency });
+    row.savings = computeSavings(
+      { quotes: mergedQuotes, poValueCurrency: mergedPoValueCurrency, awardedTo: mergedAwardedTo },
+      input.savings ?? parsedExisting.savings
+    );
+  } else {
+    if (input.percentage !== undefined) row.percentage = input.percentage;
+    if (input.savings !== undefined) row.savings = input.savings;
   }
 
   const { data, error } = await supabase

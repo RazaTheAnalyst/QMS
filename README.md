@@ -50,7 +50,7 @@ Run the SQL migrations in Supabase SQL editor in order:
 - Server-side authorization via Supabase RLS policies
 - Client-side access control for UI hints only (not security-critical)
 - Content Security Policy configured in `vercel.json`
-- Auth tokens stored in httpOnly cookies (not localStorage)
+- Auth tokens stored in cookies with `SameSite=Lax` and `Secure` (on HTTPS). Note: cookies are set from the client, so they are not `httpOnly`; access is further limited by the Content Security Policy and the service worker never caches API responses.
 
 ## Scripts
 

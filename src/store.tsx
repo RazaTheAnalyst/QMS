@@ -15,6 +15,12 @@ import {
   deleteAppUserAPI,
 } from './api';
 
+let idSeq = 0;
+function nextOptimisticId(): number {
+  idSeq -= 1;
+  return idSeq;
+}
+
 export function useStore() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [forwarders, setForwarders] = useState<Forwarder[]>([]);
@@ -54,7 +60,7 @@ export function useStore() {
 
   const addQuotation = useCallback(async (input: QuotationInput) => {
     const optimistic: Quotation = {
-      id: Date.now(),
+      id: nextOptimisticId(),
       ...input,
       poValueCurrency: input.poValueCurrency ?? 'AED',
       percentage: 0,
@@ -108,7 +114,7 @@ export function useStore() {
   }, []);
 
   const addForwarder = useCallback(async (data: Omit<Forwarder, 'id'>) => {
-    const optimistic: Forwarder = { id: Date.now(), ...data };
+    const optimistic: Forwarder = { id: nextOptimisticId(), ...data };
     setForwarders(prev => [...prev, optimistic]);
     try {
       const saved = await createForwarderAPI(data);
@@ -154,7 +160,7 @@ export function useStore() {
 
   const addAppUser = useCallback(async (input: AppUserInput) => {
     const optimistic: AppUser = {
-      id: Date.now(),
+      id: nextOptimisticId(),
       ...input,
       email: input.email.toLowerCase().trim(),
       createdAt: new Date().toISOString(),

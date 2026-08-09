@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense, Component, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { LockOutlined, Search } from '@mui/icons-material';
+import { useState, useMemo, useCallback, lazy, Suspense, Component, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import LockOutlined from '@mui/icons-material/LockOutlined';
+import Search from '@mui/icons-material/Search';
 import {
   Box, Button, Typography, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, AlertTitle,
@@ -11,6 +12,7 @@ import { useAuth, AuthProvider } from './auth';
 import { ThemeProvider } from './theme';
 import type { Quotation, QuotationInput, Filters, Forwarder, AppModule, AppUserInput } from './types';
 import { ADMIN_EMAIL, calculateAwardSavings } from './types';
+import { useDebouncedValue, getUserName } from '@/lib/utils';
 import { AppNav } from './components/AppNav';
 import { MobileNav } from './components/MobileNav';
 
@@ -21,34 +23,9 @@ const SearchFilter = lazy(() => import('./components/SearchFilter'));
 const Forwarders = lazy(() => import('./components/Forwarders'));
 const LoginPage = lazy(() => import('./components/LoginPage'));
 const Users = lazy(() => import('./components/Users'));
+const ResetPassword = lazy(() => import('./components/ResetPassword'));
 
 const ALL_MODULES: AppModule[] = ['dashboard', 'quotations', 'forwarders', 'users'];
-
-const APPROVED_STATUSES = new Set([
-  'Assign to forwarder',
-  'In Transit',
-  'Arrived Awaiting Clearance',
-  'Under Clearance',
-  'Delivered',
-]);
-
-function titleCaseName(value: string) {
-  return value
-    .replace(/[._-]+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, char => char.toUpperCase());
-}
-
-function getActorName(user: { email?: string; user_metadata?: Record<string, unknown> } | null | undefined) {
-  const metadata = user?.user_metadata ?? {};
-  const metadataName = metadata.full_name || metadata.name || metadata.display_name;
-  if (typeof metadataName === 'string' && metadataName.trim()) {
-    return metadataName.trim();
-  }
-
-  const emailName = user?.email?.split('@')[0] ?? '';
-  return emailName ? titleCaseName(emailName) : 'Unknown user';
-}
 
 function PageLoader() {
   return (
@@ -181,7 +158,6 @@ function AppContent() {
     loading,
     error: storeError,
   } = useStore();
-  const approvalBackfillDoneRef = useRef(false);
   const [showForm, setShowForm] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [filters, setFilters] = useState<Filters>({ search: '', entity: '', status: '' });
@@ -190,10 +166,12 @@ function AppContent() {
   const [confirmDeleteFwd, setConfirmDeleteFwd] = useState<number | null>(null);
   const [rejectTarget, setRejectTarget] = useState<number | null>(null);
 
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
+
   const filteredQuotations = useMemo(() => {
     return quotations.filter(q => {
-      const searchLower = filters.search.toLowerCase();
-      const searchMatch = !filters.search ||
+      const searchLower = debouncedSearch.toLowerCase();
+      const searchMatch = !debouncedSearch ||
         q.supplierName.toLowerCase().includes(searchLower) ||
         q.supplierPO.toLowerCase().includes(searchLower) ||
         q.remarks.toLowerCase().includes(searchLower) ||
@@ -211,7 +189,7 @@ function AppContent() {
       const statusMatch = !filters.status || q.status === filters.status;
       return searchMatch && entityMatch && statusMatch;
     });
-  }, [quotations, filters]);
+  }, [quotations, filters, debouncedSearch]);
 
   const pendingApprovalsCount = useMemo(() =>
     quotations.filter(q => q.status === 'Awaiting Approval').length,
@@ -243,37 +221,6 @@ function AppContent() {
 
   const canManageUsers = canAccess('users') && currentAccess.role === 'Admin';
 
-  useEffect(() => {
-    if (!session || loading || approvalBackfillDoneRef.current || user?.email !== ADMIN_EMAIL) return;
-
-    const targets = quotations.filter(q =>
-      APPROVED_STATUSES.has(q.status) &&
-      (!q.approvedBy || !q.approvedAt)
-    );
-
-    if (targets.length === 0) {
-      approvalBackfillDoneRef.current = true;
-      return;
-    }
-
-    approvalBackfillDoneRef.current = true;
-    const actorName = getActorName(user);
-    const approvedAt = new Date().toISOString();
-
-    void Promise.all(targets.map(q =>
-      updateQuotation(q.id, {
-        approvedBy: q.approvedBy || actorName,
-        approvedAt: q.approvedAt || approvedAt,
-      })
-    ))
-      .then(() => {
-        snackbar.success(`Approval history updated for ${targets.length} quotation${targets.length === 1 ? '' : 's'}.`);
-      })
-      .catch(() => {
-        snackbar.error('Failed to update approval history.');
-      });
-  }, [loading, quotations, session, snackbar, updateQuotation, user]);
-
   const handleCloseForm = useCallback(() => {
     setShowForm(false);
     setEditingQuotation(null);
@@ -287,9 +234,17 @@ function AppContent() {
         await updateQuotation(editingQuotation.id, input);
         snackbar.success('Quotation updated successfully!');
       } else {
+        const duplicate = quotations.some(q =>
+          q.supplierPO.trim().toLowerCase() === input.supplierPO.trim().toLowerCase() &&
+          q.entity === input.entity
+        );
+        if (duplicate) {
+          snackbar.warning(`A quotation already exists for PO "${input.supplierPO}" (${input.entity}).`);
+          return;
+        }
         await addQuotation({
           ...input,
-          createdBy: getActorName(user),
+          createdBy: getUserName(user),
           createdAt: new Date().toISOString(),
         });
         snackbar.success('Quotation created successfully!');
@@ -299,7 +254,7 @@ function AppContent() {
     } catch {
       snackbar.error('Failed to save quotation');
     }
-  }, [editingQuotation, updateQuotation, addQuotation, snackbar, user]);
+  }, [editingQuotation, updateQuotation, addQuotation, snackbar, user, quotations]);
 
   const handleEdit = useCallback((quotation: Quotation) => {
     setEditingQuotation(quotation);
@@ -453,7 +408,7 @@ function AppContent() {
         return;
       }
       const approvalStamp = status === 'Assign to forwarder'
-        ? { approvedBy: getActorName(user), approvedAt: new Date().toISOString() }
+        ? { approvedBy: getUserName(user), approvedAt: new Date().toISOString() }
         : {};
       await updateQuotation(id, { status, ...approvalStamp });
       snackbar.success(`Quotation status updated to ${status}!`);
@@ -656,15 +611,30 @@ function AppContent() {
   );
 }
 
+function AppRouter() {
+  const location = useLocation();
+  if (location.pathname === '/reset-password') {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <ResetPassword />
+      </Suspense>
+    );
+  }
+
+  return <AppContent />;
+}
+
 function App() {
   return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ThemeProvider>
+          <AuthProvider>
+            <AppRouter />
+          </AuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

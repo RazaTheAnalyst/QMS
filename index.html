@@ -6,7 +6,7 @@
 
     <title>Quotation Manager</title>
     <meta name="description" content="Manage logistics quotations across UAE, Qatar, Oman, KSA" />
-    <meta name="theme-color" content="#4338ca" />
+    <meta name="theme-color" content="#0f766e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Quotations" />
@@ -14,7 +14,6 @@
     <meta name="format-detection" content="telephone=no" />
     <meta name="color-scheme" content="dark light" />
 
-    <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
@@ -26,12 +25,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
-        });
-      }
-    </script>
   </body>
 </html>

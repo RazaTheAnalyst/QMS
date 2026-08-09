@@ -3,14 +3,19 @@ import { CURRENCY_LIST } from '../types';
 import type { AppModule } from '../types';
 import { useTheme } from '../theme';
 import { useAuth } from '../auth';
+import { getUserName } from '@/lib/utils';
 import {
   AppBar, Toolbar, Box, Button, IconButton, Typography, Tooltip,
   FormControl, Select, MenuItem,
 } from '@mui/material';
-import {
-  Dashboard, Description, LocalShipping, Add,
-  DarkMode, LightMode, Logout, ManageAccounts,
-} from '@mui/icons-material';
+import Dashboard from '@mui/icons-material/Dashboard';
+import Description from '@mui/icons-material/Description';
+import LocalShipping from '@mui/icons-material/LocalShipping';
+import Add from '@mui/icons-material/Add';
+import DarkMode from '@mui/icons-material/DarkMode';
+import LightMode from '@mui/icons-material/LightMode';
+import Logout from '@mui/icons-material/Logout';
+import ManageAccounts from '@mui/icons-material/ManageAccounts';
 
 interface AppNavProps {
   onAdd: () => void;
@@ -38,24 +43,11 @@ const utilityButtonSx = {
   },
 };
 
-function displayUserName(user: { email?: string; user_metadata?: Record<string, unknown> } | null | undefined) {
-  const metadata = user?.user_metadata ?? {};
-  const metadataName = metadata.full_name || metadata.name || metadata.display_name;
-  if (typeof metadataName === 'string' && metadataName.trim()) {
-    return metadataName.trim();
-  }
-
-  const emailName = user?.email?.split('@')[0] ?? '';
-  return emailName
-    ? emailName.replace(/[._-]+/g, ' ').trim().replace(/\b\w/g, char => char.toUpperCase())
-    : 'User';
-}
-
 export function AppNav({ onAdd, displayCurrency, onCurrencyChange, modules }: AppNavProps) {
   const { toggleTheme, theme } = useTheme();
   const { user, signOut } = useAuth();
   const location = useLocation();
-  const userName = displayUserName(user);
+  const userName = getUserName(user);
   const visibleLinks = navLinks.filter(link => modules.includes(link.module));
 
   return (

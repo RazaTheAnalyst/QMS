@@ -4,7 +4,11 @@ import {
   DialogTitle, FormControl, FormControlLabel, InputLabel, MenuItem, Select,
   Switch, TextField, Typography, Checkbox, Alert, Grid,
 } from '@mui/material';
-import { Add, Delete, Edit, PeopleAlt, ShieldOutlined } from '@mui/icons-material';
+import Add from '@mui/icons-material/Add';
+import Delete from '@mui/icons-material/Delete';
+import Edit from '@mui/icons-material/Edit';
+import PeopleAlt from '@mui/icons-material/PeopleAlt';
+import ShieldOutlined from '@mui/icons-material/ShieldOutlined';
 import { APP_MODULES, USER_ROLES } from '../types';
 import type { AppModule, AppUser, AppUserInput, UserRole } from '../types';
 

@@ -1,6 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Box, BottomNavigation, BottomNavigationAction, Fab, Badge } from '@mui/material';
-import { Dashboard, Description, LocalShipping, Add, ManageAccounts } from '@mui/icons-material';
+import Dashboard from '@mui/icons-material/Dashboard';
+import Description from '@mui/icons-material/Description';
+import LocalShipping from '@mui/icons-material/LocalShipping';
+import Add from '@mui/icons-material/Add';
+import ManageAccounts from '@mui/icons-material/ManageAccounts';
 import type { AppModule } from '../types';
 
 interface MobileNavProps {

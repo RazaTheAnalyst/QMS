@@ -5,7 +5,8 @@ import {
   Box, TextField, FormControl, InputLabel, Select, MenuItem,
   Chip, InputAdornment, IconButton,
 } from '@mui/material';
-import { Search, Close } from '@mui/icons-material';
+import Search from '@mui/icons-material/Search';
+import Close from '@mui/icons-material/Close';
 
 interface SearchFilterProps {
   filters: Filters;

@@ -64,6 +64,11 @@ export interface Filters {
   status: string;
 }
 
+export interface DashboardFilters {
+  dateFrom: string;
+  dateTo: string;
+}
+
 export const ENTITIES = ['UAE', 'Qatar', 'Oman'] as const;
 
 // Server-side authorization is enforced via Supabase RLS policies.

@@ -6,7 +6,12 @@ import {
   Box, Card, CardContent, Typography, Button, TextField,
   Avatar, IconButton, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
-import { Mail, Phone, Edit, Close, Add, LocalShipping } from '@mui/icons-material';
+import Mail from '@mui/icons-material/Mail';
+import Phone from '@mui/icons-material/Phone';
+import Edit from '@mui/icons-material/Edit';
+import Close from '@mui/icons-material/Close';
+import Add from '@mui/icons-material/Add';
+import LocalShipping from '@mui/icons-material/LocalShipping';
 
 interface ForwardersProps {
   forwarders: Forwarder[];

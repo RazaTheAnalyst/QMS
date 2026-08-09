@@ -14,10 +14,16 @@ import {
   FormControl, Select, MenuItem,
   Typography, IconButton, Chip, Popover, Stack, Paper, Alert, FormHelperText,
 } from '@mui/material';
-import {
-  Close, Add, Star, LocationOn, ExpandMore, Info, Route,
-  AttachMoney, EmojiEvents, Check,
-} from '@mui/icons-material';
+import Close from '@mui/icons-material/Close';
+import Add from '@mui/icons-material/Add';
+import Star from '@mui/icons-material/Star';
+import LocationOn from '@mui/icons-material/LocationOn';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import Info from '@mui/icons-material/Info';
+import Route from '@mui/icons-material/Route';
+import AttachMoney from '@mui/icons-material/AttachMoney';
+import EmojiEvents from '@mui/icons-material/EmojiEvents';
+import Check from '@mui/icons-material/Check';
 
 const schema = z.object({
   entity: z.string().min(1, 'Entity is required'),
