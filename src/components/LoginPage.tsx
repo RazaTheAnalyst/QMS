@@ -306,7 +306,7 @@ export default function LoginPage() {
               <Button type="submit" variant="contained" size="large" disabled={loading} fullWidth sx={{
                 mt: 0.5,
                 height: 48,
-                fontWeight: 850,
+                fontWeight: 800,
                 borderRadius: 1.5,
                 boxShadow: '0 18px 34px -24px rgba(15,118,110,0.95)',
               }}>

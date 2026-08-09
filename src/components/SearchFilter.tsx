@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { ENTITIES, STATUS_LIST } from '../types';
 import type { Filters, Forwarder } from '../types';
 import { MODES_LIST } from '../locations';
+import { getEntityColor } from '../entityColors';
 import {
   Box, TextField, FormControl, InputLabel, Select, MenuItem,
   Chip, InputAdornment, IconButton, Tooltip,
@@ -17,14 +18,6 @@ interface SearchFilterProps {
   totalCount?: number;
   forwarders?: Forwarder[];
 }
-
-const ENTITY_CHIP_COLORS: Record<string, string> = {
-  UAE: '#7c3aed',
-  Qatar: '#2563eb',
-  Oman: '#059669',
-};
-
-const DEFAULT_ENTITY_COLOR = '#66736f';
 
 export default function SearchFilter({ filters, onFilterChange, resultCount, totalCount, forwarders = [] }: SearchFilterProps) {
   const handleChange = useCallback((key: keyof Filters, value: string) => {
@@ -42,10 +35,10 @@ export default function SearchFilter({ filters, onFilterChange, resultCount, tot
   return (
     <Box sx={{
       display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center',
-      borderRadius: 1.5, border: '1px solid', borderColor: 'divider',
+      borderRadius: 1, border: '1px solid', borderColor: 'divider',
       bgcolor: 'background.paper', p: 1.5, position: 'relative', overflow: 'hidden',
       borderLeft: '4px solid',
-      borderLeftColor: '#6366f1',
+      borderLeftColor: 'primary.main',
     }}>
       <TextField
         placeholder="Search supplier, PO, forwarder, mode, origin..."
@@ -75,7 +68,7 @@ export default function SearchFilter({ filters, onFilterChange, resultCount, tot
           {ENTITIES.map(e => (
             <MenuItem key={e} value={e}>
               <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: ENTITY_CHIP_COLORS[e] || DEFAULT_ENTITY_COLOR }} />
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: getEntityColor(e).main }} />
                 {e}
               </Box>
             </MenuItem>

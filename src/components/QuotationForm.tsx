@@ -586,7 +586,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
                         <Controller name={`quotes.${index}.quotedAmount`} control={control} render={({ field: aField }) => (
                           <TextField {...aField} type="number" placeholder="Amount" size="small"
                             sx={{ ...fieldSx, gridColumn: { xs: '2', sm: 'auto' }, maxWidth: { xs: '100%', sm: 'none' } }}
-                            inputProps={{ style: { fontFamily: 'monospace' } }} />
+                            inputProps={{ style: { fontFamily: '"JetBrains Mono", monospace' } }} />
                         )} />
                         {fields.length > 1 && (
                           <IconButton size="small" color="error" onClick={() => remove(index)} aria-label={`Remove quote ${index + 1}`}
@@ -609,7 +609,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
                                 transition: 'width 0.3s ease',
                               }} />
                             </Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'right', fontFamily: 'monospace' }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'right', fontFamily: '"JetBrains Mono", monospace' }}>
                               {poValueCurrency} {formatCurrency(convertedAmount)}
                             </Typography>
                           </Box>

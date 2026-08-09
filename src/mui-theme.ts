@@ -8,6 +8,8 @@ const lightPalette = {
   warning: { main: '#d89b28', light: '#e3ab3d', dark: '#b7791f', contrastText: '#1f1605' },
   info: { main: '#31748f', light: '#4a8ba8', dark: '#255e75', contrastText: '#ffffff' },
   error: { main: '#c2412d', light: '#d9533f', dark: '#a03624', contrastText: '#ffffff' },
+  purple: { main: '#7c3aed', light: '#a78bfa', dark: '#6d28d9', contrastText: '#ffffff' },
+  indigo: { main: '#6366f1', light: '#818cf8', dark: '#4f46e5', contrastText: '#ffffff' },
   background: { default: '#f7f8f5', paper: '#ffffff' },
   text: { primary: '#17201f', secondary: '#66736f' },
   divider: '#d9ded7',
@@ -21,9 +23,17 @@ const darkPalette = {
   warning: { main: '#d4a648', light: '#e0b85e', dark: '#b88e32', contrastText: '#171006' },
   info: { main: '#5fa9bf', light: '#7bbdd1', dark: '#4a8fa7', contrastText: '#ffffff' },
   error: { main: '#ef6a50', light: '#f5846e', dark: '#d9533c', contrastText: '#ffffff' },
+  purple: { main: '#a78bfa', light: '#c4b5fd', dark: '#7c3aed', contrastText: '#ffffff' },
+  indigo: { main: '#818cf8', light: '#a5b4fc', dark: '#6366f1', contrastText: '#ffffff' },
   background: { default: '#111614', paper: '#171d1b' },
   text: { primary: '#eef4f0', secondary: '#a9b7b2' },
   divider: '#2c3632',
+};
+
+const elevationShadows = {
+  low: '0 1px 2px rgba(23,32,31,0.04), 0 4px 12px -8px rgba(23,32,31,0.15)',
+  medium: '0 2px 4px rgba(23,32,31,0.04), 0 10px 24px -18px rgba(23,32,31,0.22)',
+  high: '0 4px 8px rgba(23,32,31,0.04), 0 18px 40px -20px rgba(23,32,31,0.35)',
 };
 
 export const getTheme = (mode: 'light' | 'dark') => createTheme({
@@ -80,18 +90,18 @@ export const getTheme = (mode: 'light' | 'dark') => createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          boxShadow: '0 1px 2px rgba(23,32,31,0.04), 0 10px 24px -18px rgba(23,32,31,0.22)',
+          boxShadow: elevationShadows.medium,
           borderRadius: 8,
           transition: 'box-shadow 0.3s, transform 0.2s',
           '&:hover': {
-            boxShadow: '0 1px 2px rgba(23,32,31,0.04), 0 10px 28px -20px rgba(23,32,31,0.35)',
+            boxShadow: elevationShadows.high,
           },
         },
       },
     },
     MuiDialog: {
       styleOverrides: {
-        paper: { borderRadius: 12 },
+        paper: { borderRadius: 8 },
       },
     },
     MuiChip: {
@@ -128,3 +138,5 @@ export const getTheme = (mode: 'light' | 'dark') => createTheme({
     },
   },
 });
+
+export { elevationShadows };

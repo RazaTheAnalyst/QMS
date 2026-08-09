@@ -3,29 +3,19 @@ import type { AppModule } from '../types';
 import { useTheme } from '../theme';
 import { useAuth } from '../auth';
 import { getUserName } from '@/lib/utils';
+import { NAV_LINKS } from '../navColors';
 import {
   AppBar, Toolbar, Box, Button, IconButton, Typography, Tooltip,
 } from '@mui/material';
-import Dashboard from '@mui/icons-material/Dashboard';
-import Description from '@mui/icons-material/Description';
-import LocalShipping from '@mui/icons-material/LocalShipping';
 import Add from '@mui/icons-material/Add';
 import DarkMode from '@mui/icons-material/DarkMode';
 import LightMode from '@mui/icons-material/LightMode';
 import Logout from '@mui/icons-material/Logout';
-import ManageAccounts from '@mui/icons-material/ManageAccounts';
 
 interface AppNavProps {
   onAdd: () => void;
   modules: AppModule[];
 }
-
-const navLinks = [
-  { to: '/', label: 'Dashboard', icon: Dashboard, color: '#31748f', bg: 'rgba(49,116,143,0.10)', module: 'dashboard' as const },
-  { to: '/quotations', label: 'Quotations', icon: Description, color: '#0f766e', bg: 'rgba(15,118,110,0.10)', module: 'quotations' as const },
-  { to: '/forwarders', label: 'Forwarders', icon: LocalShipping, color: '#b7791f', bg: 'rgba(183,121,31,0.12)', module: 'forwarders' as const },
-  { to: '/users', label: 'Users', icon: ManageAccounts, color: '#7c3aed', bg: 'rgba(124,58,237,0.10)', module: 'users' as const },
-];
 
 const utilityButtonSx = {
   width: 34,
@@ -44,7 +34,7 @@ export function AppNav({ onAdd, modules }: AppNavProps) {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const userName = getUserName(user);
-  const visibleLinks = navLinks.filter(link => modules.includes(link.module));
+  const visibleLinks = NAV_LINKS.filter(link => modules.includes(link.module));
 
   return (
     <AppBar position="sticky" elevation={0} sx={{
@@ -82,7 +72,7 @@ export function AppNav({ onAdd, modules }: AppNavProps) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 10px 24px -20px rgba(23,32,31,0.7)',
+            boxShadow: '0 4px 12px -8px rgba(23,32,31,0.15)',
             flexShrink: 0,
           }}>
             <Box component="img" src="/logo.svg" alt="Logo" sx={{ width: { xs: 23, sm: 26 }, height: { xs: 23, sm: 26 } }} />
@@ -163,7 +153,7 @@ export function AppNav({ onAdd, modules }: AppNavProps) {
             pl: { xs: 0.5, sm: 0.5 },
             pr: 0.5,
             minWidth: 0,
-            boxShadow: '0 10px 26px -24px rgba(23,32,31,0.65)',
+            boxShadow: '0 2px 8px -6px rgba(23,32,31,0.15)',
           }}>
             <Button
               onClick={onAdd}
@@ -171,15 +161,15 @@ export function AppNav({ onAdd, modules }: AppNavProps) {
               variant="contained"
               sx={{
                 display: { xs: 'none', sm: 'inline-flex' },
-                bgcolor: '#0f766e',
-                color: '#fff',
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
                 borderRadius: 1,
                 boxShadow: 'none',
                 '&:hover': {
-                  bgcolor: '#0b625b',
+                  bgcolor: 'primary.dark',
                   boxShadow: 'none',
                 },
-                fontWeight: 850,
+                fontWeight: 800,
                 fontSize: '0.82rem',
                 px: { sm: 1.15, lg: 1.4 },
                 minHeight: 34,

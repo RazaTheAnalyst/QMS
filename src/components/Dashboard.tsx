@@ -296,7 +296,7 @@ export default function Dashboard({ quotations, forwarders, displayCurrency, onC
                       <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
                         {stat.label}
                       </Typography>
-                      <Typography variant="h5" sx={{ color: style.accent, mt: 0.5, fontWeight: 850 }}>
+                      <Typography variant="h5" sx={{ color: style.accent, mt: 0.5, fontWeight: 800 }}>
                         {stat.value}
                       </Typography>
                     </Box>
@@ -331,7 +331,7 @@ export default function Dashboard({ quotations, forwarders, displayCurrency, onC
                     width: 30, height: 30, borderRadius: 1,
                     bgcolor: 'rgba(99,102,241,0.10)',
                     border: '1px solid rgba(99,102,241,0.18)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f46e5',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'indigo.main',
                   }}>
                     <LocalShippingOutlined sx={{ fontSize: 16 }} />
                   </Box>
@@ -365,7 +365,7 @@ export default function Dashboard({ quotations, forwarders, displayCurrency, onC
                               bgcolor: `${color}14`,
                               color,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: '0.72rem', fontWeight: 850,
+                              fontSize: '0.72rem', fontWeight: 800,
                               flexShrink: 0,
                             }}>
                               {i + 1}
@@ -394,7 +394,7 @@ export default function Dashboard({ quotations, forwarders, displayCurrency, onC
                           justifySelf: { sm: 'stretch' },
                         }}>
                           <Box>
-                            <Typography variant="body2" fontWeight={800} sx={{ fontFamily: 'monospace', lineHeight: 1.2 }}>
+                            <Typography variant="body2" fontWeight={800} sx={{ fontFamily: '"JetBrains Mono", monospace', lineHeight: 1.2 }}>
                               {formatCurrency(f.totalValue)}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">{displayCurrency}</Typography>
@@ -423,7 +423,7 @@ export default function Dashboard({ quotations, forwarders, displayCurrency, onC
                   width: 30, height: 30, borderRadius: 1,
                   bgcolor: 'rgba(124,58,237,0.10)',
                   border: '1px solid rgba(124,58,237,0.18)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7c3aed',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'purple.main',
                 }}>
                   <DescriptionOutlined sx={{ fontSize: 16 }} />
                 </Box>
@@ -470,13 +470,13 @@ export default function Dashboard({ quotations, forwarders, displayCurrency, onC
                           }}>
                             <Box>
                               <Typography variant="caption" color="text.secondary" fontWeight={750}>PO Value</Typography>
-                              <Typography variant="body2" fontWeight={800} sx={{ fontFamily: 'monospace' }}>
+                              <Typography variant="body2" fontWeight={800} sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
                                 {formatCurrency(es.totalValue)}
                               </Typography>
                             </Box>
                             <Box>
                               <Typography variant="caption" color="text.secondary" fontWeight={750}>Freight</Typography>
-                              <Typography variant="body2" fontWeight={800} sx={{ fontFamily: 'monospace' }}>
+                              <Typography variant="body2" fontWeight={800} sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
                                 {formatCurrency(es.freight)}
                               </Typography>
                             </Box>
