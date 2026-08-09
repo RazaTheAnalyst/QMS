@@ -5,6 +5,7 @@ import { useAuth } from '../auth';
 import {
   Box, Card, CardContent, Typography, Button, TextField,
   Avatar, IconButton, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import Mail from '@mui/icons-material/Mail';
 import Phone from '@mui/icons-material/Phone';
@@ -24,6 +25,8 @@ export default function Forwarders({ forwarders, onAdd, onEdit, onDelete }: Forw
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const { user } = useAuth();
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
   const isAdmin = user?.email === ADMIN_EMAIL;
   const [name, setName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
@@ -141,8 +144,54 @@ export default function Forwarders({ forwarders, onAdd, onEdit, onDelete }: Forw
             <Button variant="contained" startIcon={<Add />} onClick={() => setShowForm(true)}>Add Forwarder</Button>
           </CardContent>
         </Card>
+      ) : isMobile ? (
+        /* Mobile card view */
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {forwarders.map(f => (
+            <Card key={f.id} variant="outlined">
+              <CardContent sx={{ '&:last-child': { pb: 2 }, py: 2, px: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                  <Avatar sx={{ width: 36, height: 36, bgcolor: 'action.selected', color: 'primary.main', fontWeight: 800, borderRadius: 1.5, fontSize: '0.875rem' }}>
+                    {f.name.charAt(0)}
+                  </Avatar>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body1" fontWeight={700} noWrap>{f.name}</Typography>
+                    {f.contactPerson && (
+                      <Typography variant="caption" color="text.secondary">{f.contactPerson}</Typography>
+                    )}
+                  </Box>
+                  {isAdmin && (
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <IconButton size="small" color="primary" onClick={() => startEdit(f)} sx={{ minWidth: 40, minHeight: 40 }}>
+                        <Edit fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => onDelete(f.id)} sx={{ minWidth: 40, minHeight: 40 }}>
+                        <Close fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  )}
+                </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                  {f.email && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Mail fontSize="small" color="action" />
+                      <Typography variant="body2" color="text.secondary" noWrap>{f.email}</Typography>
+                    </Box>
+                  )}
+                  {f.phone && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Phone fontSize="small" color="action" />
+                      <Typography variant="body2" color="text.secondary" noWrap>{f.phone}</Typography>
+                    </Box>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
       ) : (
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
+        /* Desktop table view */
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5, overflow: 'auto' }}>
           <Table size="small">
             <TableHead>
               <TableRow>

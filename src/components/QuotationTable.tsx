@@ -455,12 +455,12 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                         {q.status === 'Awaiting Approval' && isAdmin ? (
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             <Button size="small" variant="contained" color="success"
-                              sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem', px: 1 }}
+                              sx={{ minWidth: 'auto', minHeight: 36, fontSize: '0.75rem', px: 1.5 }}
                               onClick={() => onStatusChange(q.id, 'Assign to forwarder')}>
                               Approve
                             </Button>
                             <Button size="small" variant="contained" color="error"
-                              sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem', px: 1 }}
+                              sx={{ minWidth: 'auto', minHeight: 36, fontSize: '0.75rem', px: 1.5 }}
                               onClick={() => onStatusChange(q.id, 'Rejected')}>
                               Reject
                             </Button>
@@ -568,9 +568,9 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                       </Box>
                       {q.status === 'Awaiting Approval' && isAdmin ? (
                         <Box sx={{ display: 'flex', gap: 0.5 }} onClick={e => e.stopPropagation()}>
-                          <Button size="small" variant="contained" color="success" sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem', px: 1 }}
+                          <Button size="small" variant="contained" color="success" sx={{ minWidth: 'auto', minHeight: 36, fontSize: '0.75rem', px: 1.5 }}
                             onClick={() => onStatusChange(q.id, 'Assign to forwarder')}>Approve</Button>
-                          <Button size="small" variant="contained" color="error" sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem', px: 1 }}
+                          <Button size="small" variant="contained" color="error" sx={{ minWidth: 'auto', minHeight: 36, fontSize: '0.75rem', px: 1.5 }}
                             onClick={() => onStatusChange(q.id, 'Rejected')}>Reject</Button>
                         </Box>
                       ) : (
@@ -794,7 +794,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                                   size="small"
                                   variant={isAwarded ? 'contained' : 'outlined'}
                                   color={isAwarded ? 'success' : 'primary'}
-                                  sx={{ minWidth: 'auto', height: 24, fontSize: '0.6875rem' }}
+                                  sx={{ minWidth: 'auto', minHeight: 36, fontSize: '0.75rem' }}
                                   onClick={() => onAward(dq.id, qt.forwarder)}
                                   startIcon={isAwarded ? <Star /> : <StarBorder />}
                                 >
@@ -866,7 +866,7 @@ export default function QuotationTable({ quotations, forwarders, onEdit, onDelet
                   borderTop: '1px solid',
                   borderColor: 'divider',
                   '& .MuiButton-root': {
-                    height: 36,
+                    minHeight: 40,
                     alignSelf: 'center',
                   },
                 }}>

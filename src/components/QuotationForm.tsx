@@ -13,6 +13,7 @@ import {
   Dialog, DialogTitle, Box, Button, TextField,
   FormControl, Select, MenuItem,
   Typography, IconButton, Chip, Popover, Stack, Paper, Alert, FormHelperText,
+  useMediaQuery, useTheme as useMuiTheme,
 } from '@mui/material';
 import Close from '@mui/icons-material/Close';
 import Add from '@mui/icons-material/Add';
@@ -230,6 +231,8 @@ interface QuotationFormProps {
 
 export default function QuotationForm({ quotation, forwarders, onSave, onClose }: QuotationFormProps) {
   const { user } = useAuth();
+  const muiTheme = useMuiTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
   const isAdmin = user?.email === ADMIN_EMAIL;
   const [submitError, setSubmitError] = useState('');
 
@@ -348,7 +351,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
   );
 
   return (
-    <Dialog open onClose={onClose} maxWidth="md" fullWidth sx={{
+    <Dialog open onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile} sx={{
       '& .MuiDialog-paper': {
         maxHeight: { xs: '100dvh', sm: 'calc(100dvh - 1.25rem)' },
         maxWidth: 980,
@@ -590,7 +593,7 @@ export default function QuotationForm({ quotation, forwarders, onSave, onClose }
                         )} />
                         {fields.length > 1 && (
                           <IconButton size="small" color="error" onClick={() => remove(index)} aria-label={`Remove quote ${index + 1}`}
-                            sx={{ justifySelf: { xs: 'end', sm: 'center' }, gridColumn: { xs: '2', sm: 'auto' } }}>
+                            sx={{ justifySelf: { xs: 'end', sm: 'center' }, gridColumn: { xs: '2', sm: 'auto' }, minWidth: 40, minHeight: 40 }}>
                             <Close fontSize="small" />
                           </IconButton>
                         )}

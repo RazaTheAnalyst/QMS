@@ -18,8 +18,8 @@ interface AppNavProps {
 }
 
 const utilityButtonSx = {
-  width: 34,
-  height: 34,
+  width: 38,
+  height: 38,
   borderRadius: 1,
   color: 'text.secondary',
   bgcolor: 'transparent',
