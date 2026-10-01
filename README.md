@@ -1,63 +1,56 @@
 # Quotation Management System (QMS)
 
-A React + TypeScript SPA for managing logistics quotations across UAE, Qatar, and Oman. Built with Vite, Material UI, Supabase backend, and deployed on Vercel as a PWA.
+A Next.js + TypeScript app for managing logistics quotations across UAE, Qatar, and Oman. Built with Next.js 16, Tailwind CSS, shadcn-style UI, Supabase backend, and deployed on Vercel as a PWA.
+
+> Previous Vite + MUI build is preserved on the `legacy-vite` branch.
 
 ## Features
 
-- **Dashboard** — Analytics with stats cards, forwarder performance, entity breakdown
-- **Quotation Management** — Create, edit, approve/reject quotations with multi-forwarder quotes
+- **Dashboard** — stat cards, freight-award trends (PO / freight / savings), forwarder performance, entity breakdown
+- **Quotation Management** — create, edit, approve/reject quotations with multi-forwarder quotes, Lowest/Highest ranking, savings tracking
 - **Forwarder Management** — CRUD operations for logistics partner contacts
-- **User Management** — Role-based access control (Admin, Logistics, Sales) with module permissions
-- **Excel Export** — Export quotations to Excel for reporting
-- **PWA** — Installable progressive web app with offline caching
+- **User Management** — role-based access control (Admin, Logistics, Sales) with module permissions
+- **Excel Export** — export filtered quotations to Excel
+- **PWA** — installable app; static assets cached offline, Supabase API/auth traffic never cached
 
 ## Tech Stack
 
-- **Frontend:** React 19, TypeScript, Vite 8, Material UI 5
-- **Backend:** Supabase (PostgreSQL + Auth + RLS)
-- **Deployment:** Vercel with security headers and SPA routing
+- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, ApexCharts
+- **Backend:** Supabase (PostgreSQL + Auth + RLS, via `@supabase/ssr`)
+- **Deployment:** Vercel with security headers
 
 ## Getting Started
 
 ```bash
-# Install dependencies
 npm install
 
 # Set up environment variables
-cp .env.example .env
-# Edit .env with your Supabase credentials
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials
 
-# Start development server
 npm run dev
-
-# Run tests
-npm test
-
-# Build for production
-npm run build
 ```
+
+Open [http://localhost:3000](http://localhost:3000) and sign in with a Supabase Auth user whose email exists in `app_users` (or the admin email).
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `NEXT_PUBLIC_ADMIN_EMAIL` | Full-access admin email (default `admin@netceedmea.com`) |
+
+Set the same values in the Vercel project dashboard (Production + Preview).
 
 ## Database Setup
 
-Run the SQL migrations in Supabase SQL editor in order:
-
-1. `supabase_app_users.sql` — Users table, roles, and RLS policies
-2. `supabase_rls_quotations_forwarders.sql` — RLS policies for quotations and forwarders tables
-
-## Security
-
-- Row Level Security (RLS) enforced on all database tables
-- Server-side authorization via Supabase RLS policies
-- Client-side access control for UI hints only (not security-critical)
-- Content Security Policy configured in `vercel.json`
-- Auth tokens stored in cookies with `SameSite=Lax` and `Secure` (on HTTPS). Note: cookies are set from the client, so they are not `httpOnly`; access is further limited by the Content Security Policy and the service worker never caches API responses.
+Run `supabase_run_me.sql` in the Supabase SQL editor (RLS tables + policies). No migration is needed when deploying over the previous Vite build — same Supabase project.
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | Type-check and build for production |
+| `npm run dev` | Start Next.js dev server |
+| `npm run build` | Production build |
 | `npm run lint` | Run ESLint |
-| `npm test` | Run tests once |
-| `npm run test:watch` | Run tests in watch mode |

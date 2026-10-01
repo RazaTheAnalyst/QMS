@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: #1976d2;
+  --color-primary-dark: #1565c0;
+  --color-secondary: #b7791f;
+  --color-success: #168256;
+  --color-warning: #d89b28;
+  --color-info: #42a5f5;
+  --color-danger: #c2412d;
+  --color-muted: #5d6b82;
+  --color-surface: #e9edf3;
+  --color-card: #ffffff;
+  --color-border: #e6ebf2;
+  --radius-xl: 0.875rem;
+}
+
+:root {
+  --background: #e9edf3;
+  --foreground: #17201f;
+}
+
+.dark {
+  --background: #0f1412;
+  --foreground: #eef4f0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Native controls: keep text readable in both themes */
+input,
+select,
+textarea {
+  color-scheme: light;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  color-scheme: dark;
+}
+
+select option {
+  color: #17201f;
+  background-color: #ffffff;
+}
+
+.dark select option {
+  color: #eef4f0;
+  background-color: #1a221f;
+}
+
+/* Colored dropdowns: blue bold value text + blue chevron, app-wide */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231976d2' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  padding-right: 2.3rem !important;
+  color: #1565c0;
+  font-weight: 700;
+}
+
+.dark select {
+  color: #90caf9;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2390caf9' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
